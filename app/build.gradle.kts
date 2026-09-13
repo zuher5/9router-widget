@@ -67,6 +67,12 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.coroutines.android)
 
+    // Glance & Widget
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)

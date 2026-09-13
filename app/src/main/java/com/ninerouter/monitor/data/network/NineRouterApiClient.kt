@@ -1,11 +1,16 @@
 package com.ninerouter.monitor.data.network
 
 import com.ninerouter.monitor.data.model.*
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.serialization.json.Json
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.BufferedReader
 import java.io.IOException
+import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -68,6 +73,72 @@ class NineRouterApiClient(
                     }
                 }
             })
+        }
+    }
+
+    suspend fun getUsageStats(baseUrl: String, period: String = "today"): Result<UsageStatsResponse> {
+        val url = cleanUrl(baseUrl) + "/api/usage/stats?period=$period"
+        val request = Request.Builder().url(url).get().build()
+        return executeJson(request)
+    }
+
+    /**
+     * SSE stream untuk /api/usage/stream.
+     * Mengembalikan Flow berupa String JSON event dari server (atau null jika keepalive ping).
+     */
+    fun getUsageStream(baseUrl: String): Flow<StreamUpdatePayload> = callbackFlow {
+        val url = cleanUrl(baseUrl) + "/api/usage/stream"
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .get()
+            .build()
+
+        val streamingClient = client.newBuilder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .build()
+
+        val call = streamingClient.newCall(request)
+
+        val thread = Thread {
+            try {
+                val response = call.execute()
+                if (!response.isSuccessful) {
+                    close(IOException("HTTP ${response.code}"))
+                    return@Thread
+                }
+                val source = response.body?.byteStream() ?: run {
+                    close(IOException("Empty SSE body"))
+                    return@Thread
+                }
+                val reader = BufferedReader(InputStreamReader(source))
+                var line: String?
+                val dataBuffer = StringBuilder()
+                while (reader.readLine().also { line = it } != null) {
+                    val l = line ?: break
+                    if (l.startsWith("data:")) {
+                        val payload = l.removePrefix("data:").trim()
+                        if (payload.isNotEmpty()) {
+                            try {
+                                val parsed = json.decodeFromString<StreamUpdatePayload>(payload)
+                                trySend(parsed)
+                            } catch (_: Exception) {
+                                // Abaikan format payload yang berbeda (mis. full stats saat init)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                close(e)
+            }
+        }
+        thread.isDaemon = true
+        thread.start()
+
+        awaitClose {
+            call.cancel()
+            thread.interrupt()
         }
     }
 

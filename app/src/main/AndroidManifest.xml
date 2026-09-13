@@ -25,6 +25,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Glance AppWidget Receiver untuk Solar System Widget -->
+        <receiver
+            android:name=".widget.SolarWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/solar_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

@@ -94,4 +94,31 @@ class ApiClientMockTest {
         assertEquals("auth_token", cookies[0].name)
         assertEquals("jwt_sample_123", cookies[0].value)
     }
+
+    @Test
+    fun testGetUsageStats() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""
+                    {
+                        "totalRequests": 42,
+                        "totalPromptTokens": 1000,
+                        "totalCompletionTokens": 500,
+                        "totalCost": 0.05,
+                        "byProvider": {},
+                        "byModel": {}
+                    }
+                """.trimIndent())
+        )
+
+        val baseUrl = server.url("/").toString()
+        val result = client.getUsageStats(baseUrl, "today")
+
+        assertTrue(result.isSuccess)
+        val stats = result.getOrNull()
+        assertNotNull(stats)
+        assertEquals(42L, stats?.totalRequests)
+        assertEquals(1500L, stats?.totalTokens)
+    }
 }

@@ -1,7 +1,6 @@
 package com.ninerouter.monitor
 
 import android.os.Bundle
-import android.webkit.CookieManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,9 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.ninerouter.monitor.data.auth.SessionManager
 import com.ninerouter.monitor.data.network.NineRouterApiClient
+import com.ninerouter.monitor.data.repository.UsageRepository
+import com.ninerouter.monitor.ui.dashboard.DashboardScreen
+import com.ninerouter.monitor.ui.dashboard.DashboardViewModel
 import com.ninerouter.monitor.ui.setup.SetupScreen
+import com.ninerouter.monitor.ui.theme.NineRouterBrand
 import com.ninerouter.monitor.ui.theme.NineRouterTheme
-import com.ninerouter.monitor.ui.webview.WebViewScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,6 +26,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     private lateinit var sessionManager: SessionManager
     private lateinit var apiClient: NineRouterApiClient
+    private lateinit var repository: UsageRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,15 +34,16 @@ class MainActivity : ComponentActivity() {
 
         sessionManager = SessionManager(applicationContext)
         apiClient = NineRouterApiClient()
+        repository = UsageRepository(applicationContext, apiClient, sessionManager)
 
         setContent {
             NineRouterTheme {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Loading) }
-                var authToken by remember { mutableStateOf<String?>(null) }
                 var isLoggingIn by remember { mutableStateOf(false) }
                 var loginError by remember { mutableStateOf<String?>(null) }
+                var dashboardViewModel by remember { mutableStateOf<DashboardViewModel?>(null) }
 
-                fun performLogin(url: String, pass: String, onComplete: ((Boolean) -> Unit)? = null) {
+                fun performLogin(url: String, pass: String) {
                     isLoggingIn = true
                     loginError = null
 
@@ -52,12 +56,12 @@ class MainActivity : ComponentActivity() {
                             result.onSuccess { resp ->
                                 if (resp.success) {
                                     sessionManager.saveServerConfig(cleanUrl, pass, true)
-                                    val token = apiClient.cookieJar.getCookiesForHost(android.net.Uri.parse(cleanUrl).host ?: "")
-                                        .firstOrNull { it.name == "auth_token" }?.value
-
-                                    authToken = token
-                                    currentScreen = Screen.WebView(cleanUrl)
-                                    onComplete?.invoke(true)
+                                    dashboardViewModel = DashboardViewModel(
+                                        appContext = applicationContext,
+                                        repository = repository,
+                                        sessionManager = sessionManager
+                                    )
+                                    currentScreen = Screen.Dashboard
                                 } else {
                                     val msg = when {
                                         resp.mustChangePassword -> getString(R.string.error_must_change_password)
@@ -68,12 +72,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                     loginError = msg
                                     currentScreen = Screen.Setup
-                                    onComplete?.invoke(false)
                                 }
                             }.onFailure { err ->
                                 loginError = err.localizedMessage ?: getString(R.string.error_connection_failed)
                                 currentScreen = Screen.Setup
-                                onComplete?.invoke(false)
                             }
                         }
                     }
@@ -91,10 +93,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                when (val screen = currentScreen) {
+                when (currentScreen) {
                     is Screen.Loading -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(color = NineRouterBrand)
                         }
                     }
                     is Screen.Setup -> {
@@ -107,32 +109,19 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                    is Screen.WebView -> {
-                        WebViewScreen(
-                            serverUrl = screen.url,
-                            authToken = authToken,
-                            onOpenSettings = {
-                                currentScreen = Screen.Setup
-                            },
+                    is Screen.Dashboard -> {
+                        val vm = dashboardViewModel ?: remember {
+                            DashboardViewModel(
+                                appContext = applicationContext,
+                                repository = repository,
+                                sessionManager = sessionManager
+                            )
+                        }
+                        DashboardScreen(
+                            viewModel = vm,
                             onLogoutClick = {
-                                lifecycleScope.launch(Dispatchers.IO) {
-                                    apiClient.logout(screen.url)
-                                    sessionManager.clearSession()
-                                    withContext(Dispatchers.Main) {
-                                        CookieManager.getInstance().removeAllCookies(null)
-                                        CookieManager.getInstance().flush()
-                                        authToken = null
-                                        currentScreen = Screen.Setup
-                                    }
-                                }
-                            },
-                            onRequireReLogin = {
-                                val pass = sessionManager.getSavedPassword()
-                                if (!pass.isNullOrBlank()) {
-                                    performLogin(screen.url, pass)
-                                } else {
-                                    currentScreen = Screen.Setup
-                                }
+                                dashboardViewModel = null
+                                currentScreen = Screen.Setup
                             }
                         )
                     }
@@ -144,6 +133,6 @@ class MainActivity : ComponentActivity() {
     private sealed interface Screen {
         object Loading : Screen
         object Setup : Screen
-        data class WebView(val url: String) : Screen
+        object Dashboard : Screen
     }
 }

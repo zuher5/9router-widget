@@ -5,12 +5,32 @@
     <string name="setup_url_label">Server Address (HTTP / HTTPS)</string>
     <string name="setup_password_label">Dashboard Password</string>
     <string name="setup_button_login">Open Dashboard</string>
-    
-    <string name="action_back">Back</string>
-    <string name="action_reload">Reload</string>
-    <string name="action_open_browser">Open in Browser</string>
-    <string name="action_settings">Change URL</string>
-    <string name="action_logout">Logout</string>
+
+    <string name="refresh">Refresh</string>
+    <string name="logout">Logout</string>
+
+    <string name="period_today">Today</string>
+    <string name="period_24h">24h</string>
+    <string name="period_7d">7D</string>
+    <string name="period_30d">30D</string>
+    <string name="period_60d">60D</string>
+    <string name="period_all">All</string>
+
+    <string name="total_requests">Total Requests</string>
+    <string name="total_tokens">Total Tokens</string>
+    <string name="total_cost">Est. Cost</string>
+    <string name="success_rate">Success Rate</string>
+    <string name="avg_latency">Avg Latency</string>
+    <string name="input_tokens">Input Tokens</string>
+    <string name="output_tokens">Output Tokens</string>
+
+    <string name="solar_system">Solar System</string>
+    <string name="recent_requests">Recent Requests</string>
+    <string name="no_data">No usage data</string>
+    <string name="offline_mode_cached">Offline Mode: Displaying last cached data</string>
+
+    <string name="widget_solar_desc">Real-time 9Router usage Solar System graphic</string>
+    <string name="widget_no_data">Open app to load data</string>
 
     <string name="error_invalid_password_remaining">Invalid password. %d attempt(s) remaining.</string>
     <string name="error_must_change_password">Default password must be changed on the server first.</string>
