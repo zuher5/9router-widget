@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import android.graphics.Paint as AndroidPaint
 import com.ninerouter.monitor.data.model.TopologyProvider
 import com.ninerouter.monitor.data.model.UsageStatsResponse
-import com.ninerouter.monitor.ui.theme.NineRouterBrand
+import com.ninerouter.monitor.ui.theme.*
 import kotlinx.coroutines.delay
 
 private const val FE_ACTIVE_TIMEOUT_MS = 60000L
