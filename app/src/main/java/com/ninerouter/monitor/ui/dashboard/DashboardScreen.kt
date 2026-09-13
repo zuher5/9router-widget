@@ -17,19 +17,47 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ninerouter.monitor.R
 import com.ninerouter.monitor.data.model.RecentRequestItem
+import com.ninerouter.monitor.data.model.UsageStatsResponse
 import com.ninerouter.monitor.ui.solar.SolarSystemView
 import com.ninerouter.monitor.ui.theme.ColorDanger
 import com.ninerouter.monitor.ui.theme.ColorSuccess
 import com.ninerouter.monitor.ui.theme.NineRouterBrand
 import java.text.DecimalFormat
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onLogoutClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+
+    DashboardContent(
+        stats = state.stats,
+        selectedPeriod = state.selectedPeriod,
+        isLoading = state.isLoading,
+        isOffline = state.isOffline,
+        isStreaming = state.isStreaming,
+        errorMessage = state.errorMessage,
+        onPeriodSelected = { viewModel.onPeriodSelected(it) },
+        onRefresh = { viewModel.refresh() },
+        onLogout = { viewModel.logout(onLogoutClick) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardContent(
+    stats: UsageStatsResponse?,
+    selectedPeriod: String,
+    isLoading: Boolean,
+    isOffline: Boolean,
+    isStreaming: Boolean,
+    errorMessage: String?,
+    onPeriodSelected: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val periods = listOf(
         "today" to R.string.period_today,
         "24h" to R.string.period_24h,
@@ -39,6 +67,7 @@ fun DashboardScreen(
     )
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
@@ -49,7 +78,7 @@ fun DashboardScreen(
                             color = NineRouterBrand
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        if (state.isStreaming) {
+                        if (isStreaming) {
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
@@ -67,10 +96,10 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.refresh() }) {
+                    TextButton(onClick = onRefresh) {
                         Text(stringResource(R.string.refresh), color = MaterialTheme.colorScheme.primary)
                     }
-                    TextButton(onClick = { viewModel.logout(onLogoutClick) }) {
+                    TextButton(onClick = onLogout) {
                         Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -84,7 +113,7 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Filter Periode (mengikuti web: today, 24h, 7d, 30d, 60d)
+            // Filter Periode
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -92,8 +121,8 @@ fun DashboardScreen(
                 ) {
                     periods.forEach { (key, labelRes) ->
                         FilterChip(
-                            selected = state.selectedPeriod == key,
-                            onClick = { viewModel.onPeriodSelected(key) },
+                            selected = selectedPeriod == key,
+                            onClick = { onPeriodSelected(key) },
                             label = { Text(stringResource(labelRes), fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = NineRouterBrand,
@@ -104,7 +133,7 @@ fun DashboardScreen(
                 }
             }
 
-            if (state.isOffline) {
+            if (isOffline) {
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -121,7 +150,6 @@ fun DashboardScreen(
                 }
             }
 
-            val stats = state.stats
             if (stats != null) {
                 // Baris Metrik 1: Total Requests & Total Token
                 item {
@@ -212,7 +240,7 @@ fun DashboardScreen(
                         RecentRequestRow(item)
                     }
                 }
-            } else if (state.isLoading) {
+            } else if (isLoading) {
                 item {
                     Box(
                         modifier = Modifier
@@ -232,7 +260,7 @@ fun DashboardScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = state.errorMessage ?: stringResource(R.string.no_data),
+                            text = errorMessage ?: stringResource(R.string.no_data),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

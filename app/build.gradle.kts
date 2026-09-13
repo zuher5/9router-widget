@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.compose.screenshot)
 }
 
 android {
@@ -77,5 +78,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.screenshot.validation.api)
+    testImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.tooling)
 }
