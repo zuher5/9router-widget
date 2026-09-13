@@ -82,4 +82,20 @@ dependencies {
     testImplementation(libs.screenshot.validation.api)
     testImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.tooling)
+
+    // Pin kotlin-stdlib ke 2.0.21 agar tidak tertimpa oleh transitive dependency screenshot plugin (2.2.10)
+    constraints {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21") {
+            because("Match project Kotlin compiler version 2.0.21")
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21")
+    }
 }
