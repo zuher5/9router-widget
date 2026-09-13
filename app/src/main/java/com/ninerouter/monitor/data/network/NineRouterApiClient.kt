@@ -82,6 +82,18 @@ class NineRouterApiClient(
         return executeJson(request)
     }
 
+    suspend fun getProviders(baseUrl: String): Result<ProviderConnectionsResponse> {
+        val url = cleanUrl(baseUrl) + "/api/providers"
+        val request = Request.Builder().url(url).get().build()
+        return executeJson(request)
+    }
+
+    suspend fun getProviderNodes(baseUrl: String): Result<ProviderNodesResponse> {
+        val url = cleanUrl(baseUrl) + "/api/provider-nodes"
+        val request = Request.Builder().url(url).get().build()
+        return executeJson(request)
+    }
+
     /**
      * SSE stream untuk /api/usage/stream.
      * Mengembalikan Flow berupa String JSON event dari server (atau null jika keepalive ping).

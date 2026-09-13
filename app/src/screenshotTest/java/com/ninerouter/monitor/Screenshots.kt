@@ -36,14 +36,12 @@ class Screenshots {
             Surface {
                 DashboardContent(
                     stats = PreviewData.sampleStats,
+                    providers = PreviewData.sampleProviders,
                     selectedPeriod = "today",
                     isLoading = false,
                     isOffline = false,
                     isStreaming = true,
-                    errorMessage = null,
-                    onPeriodSelected = {},
-                    onRefresh = {},
-                    onLogout = {}
+                    errorMessage = null
                 )
             }
         }
@@ -61,14 +59,12 @@ class Screenshots {
             Surface {
                 DashboardContent(
                     stats = PreviewData.sampleStats,
+                    providers = PreviewData.sampleProviders,
                     selectedPeriod = "today",
                     isLoading = false,
                     isOffline = false,
                     isStreaming = true,
-                    errorMessage = null,
-                    onPeriodSelected = {},
-                    onRefresh = {},
-                    onLogout = {}
+                    errorMessage = null
                 )
             }
         }
@@ -111,13 +107,14 @@ class Screenshots {
     }
 
     @PreviewTest
-    @Preview(name = "Solar System Only", showBackground = true, widthDp = 360, heightDp = 300)
+    @Preview(name = "Solar System Only", showBackground = true, widthDp = 360, heightDp = 320)
     @Composable
     fun PreviewSolarSystem() {
         NineRouterTheme(darkTheme = true) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 SolarSystemView(
                     stats = PreviewData.sampleStats,
+                    providers = PreviewData.sampleProviders,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -128,9 +125,10 @@ class Screenshots {
     @Preview(name = "Solar Widget Mockup", showBackground = true, widthDp = 320, heightDp = 150)
     @Composable
     fun PreviewSolarWidget() {
-        // Reproduksi visual widget Glance 4x2 memakai render bitmap asli
+        // Reproduksi visual widget Glance 4x2 memakai render bitmap topology baru
         val bitmap = SolarSystemRenderer.render(
             stats = PreviewData.sampleStats,
+            providers = PreviewData.sampleProviders,
             widthPx = 600,
             heightPx = 280,
             isDark = true

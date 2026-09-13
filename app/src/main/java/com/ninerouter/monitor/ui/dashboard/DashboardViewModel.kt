@@ -5,6 +5,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ninerouter.monitor.data.auth.SessionManager
+import com.ninerouter.monitor.data.model.TopologyProvider
 import com.ninerouter.monitor.data.model.UsageStatsResponse
 import com.ninerouter.monitor.data.repository.UsageRepository
 import com.ninerouter.monitor.widget.NineRouterSolarWidget
@@ -16,6 +17,8 @@ import kotlinx.coroutines.launch
 
 data class DashboardUiState(
     val stats: UsageStatsResponse? = null,
+    val providers: List<TopologyProvider> = emptyList(),
+    val selectedProvider: TopologyProvider? = null,
     val selectedPeriod: String = "today",
     val isLoading: Boolean = false,
     val isOffline: Boolean = false,
@@ -36,11 +39,17 @@ class DashboardViewModel(
 
     init {
         // Muat cache saat startup
-        val cached = repository.getCachedStats()
-        if (cached != null) {
-            _uiState.value = _uiState.value.copy(stats = cached, isOffline = true)
+        val cachedStats = repository.getCachedStats()
+        val cachedProviders = repository.getCachedProviders()
+        if (cachedStats != null || cachedProviders.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                stats = cachedStats,
+                providers = cachedProviders.ifEmpty { deriveProvidersFromStats(cachedStats) },
+                isOffline = true
+            )
         }
         refresh()
+        loadProviders()
         startStreaming()
     }
 
@@ -50,18 +59,40 @@ class DashboardViewModel(
         refresh()
     }
 
+    fun selectProvider(provider: TopologyProvider?) {
+        _uiState.value = _uiState.value.copy(selectedProvider = provider)
+    }
+
+    fun loadProviders() {
+        viewModelScope.launch {
+            val result = repository.fetchProviders()
+            result.onSuccess { list ->
+                val effective = list.ifEmpty { deriveProvidersFromStats(_uiState.value.stats) }
+                _uiState.value = _uiState.value.copy(providers = effective)
+                triggerWidgetUpdate()
+            }.onFailure {
+                // Gunakan stats.byProvider sebagai fallback bila API gagal
+                val fallback = deriveProvidersFromStats(_uiState.value.stats)
+                if (fallback.isNotEmpty() && _uiState.value.providers.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(providers = fallback)
+                }
+            }
+        }
+    }
+
     fun refresh() {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
             val result = repository.fetchUsageStats(_uiState.value.selectedPeriod)
             result.fold(
                 onSuccess = { data ->
+                    val providers = _uiState.value.providers.ifEmpty { deriveProvidersFromStats(data) }
                     _uiState.value = _uiState.value.copy(
                         stats = data,
+                        providers = providers,
                         isLoading = false,
                         isOffline = false
                     )
-                    // Push update ke widget setiap refresh sukses
                     triggerWidgetUpdate()
                 },
                 onFailure = { err ->
@@ -73,6 +104,18 @@ class DashboardViewModel(
                 }
             )
         }
+        loadProviders()
+    }
+
+    private fun deriveProvidersFromStats(stats: UsageStatsResponse?): List<TopologyProvider> {
+        if (stats == null) return emptyList()
+        val list = stats.byProvider.keys.map { key ->
+            TopologyProvider(id = key, provider = key, name = key)
+        }.toMutableList()
+        if (list.none { it.provider.equals("opencode", ignoreCase = true) }) {
+            list.add(TopologyProvider(id = "opencode", provider = "opencode", name = "OpenCode Free"))
+        }
+        return list
     }
 
     /**

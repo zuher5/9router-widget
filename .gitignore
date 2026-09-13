@@ -10,5 +10,7 @@
 local.properties
 app/build/
 apk-output/
+screenshots-output/
+screenshots-output-v2/
 *.jks
 *.keystore

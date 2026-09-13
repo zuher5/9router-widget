@@ -33,6 +33,7 @@ class NineRouterSolarWidget : GlanceAppWidget() {
         val repository = UsageRepository(context, apiClient, sessionManager)
 
         val stats = repository.getCachedStats()
+        val providers = repository.getCachedProviders()
 
         provideContent {
             val bgDark = ColorProvider(android.graphics.Color.rgb(0x1A, 0x1A, 0x1A))
@@ -51,6 +52,7 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                 if (stats != null) {
                     val bitmap = SolarSystemRenderer.render(
                         stats = stats,
+                        providers = providers,
                         widthPx = 600,
                         heightPx = 280,
                         isDark = true

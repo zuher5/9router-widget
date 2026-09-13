@@ -101,3 +101,38 @@ data class StreamUpdatePayload(
     val recentRequests: List<RecentRequestItem> = emptyList(),
     val errorProvider: String? = null
 )
+
+@Serializable
+data class ProviderConnectionsResponse(
+    val connections: List<ProviderConnectionItem> = emptyList()
+)
+
+@Serializable
+data class ProviderConnectionItem(
+    val id: String = "",
+    val provider: String = "",
+    val name: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
+data class ProviderNodesResponse(
+    val nodes: List<ProviderNodeItem> = emptyList()
+)
+
+@Serializable
+data class ProviderNodeItem(
+    val id: String = "",
+    val name: String = ""
+)
+
+@Serializable
+data class TopologyProvider(
+    val id: String = "",
+    val provider: String = "",
+    val name: String? = null,
+    val nodeName: String? = null
+) {
+    val displayLabel: String
+        get() = nodeName?.ifBlank { null } ?: name?.ifBlank { null } ?: provider
+}

@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ninerouter.monitor.R
 import com.ninerouter.monitor.data.model.RecentRequestItem
+import com.ninerouter.monitor.data.model.TopologyProvider
 import com.ninerouter.monitor.data.model.UsageStatsResponse
+import com.ninerouter.monitor.ui.solar.ProviderCatalog
 import com.ninerouter.monitor.ui.solar.SolarSystemView
 import com.ninerouter.monitor.ui.theme.*
 import java.text.DecimalFormat
@@ -35,12 +37,16 @@ fun DashboardScreen(
 
     DashboardContent(
         stats = state.stats,
+        providers = state.providers,
+        selectedProvider = state.selectedProvider,
         selectedPeriod = state.selectedPeriod,
         isLoading = state.isLoading,
         isOffline = state.isOffline,
         isStreaming = state.isStreaming,
         errorMessage = state.errorMessage,
         onPeriodSelected = { viewModel.onPeriodSelected(it) },
+        onProviderTap = { viewModel.selectProvider(it) },
+        onDismissProviderDetail = { viewModel.selectProvider(null) },
         onRefresh = { viewModel.refresh() },
         onLogout = { viewModel.logout(onLogoutClick) }
     )
@@ -50,14 +56,18 @@ fun DashboardScreen(
 @Composable
 fun DashboardContent(
     stats: UsageStatsResponse?,
-    selectedPeriod: String,
-    isLoading: Boolean,
-    isOffline: Boolean,
-    isStreaming: Boolean,
-    errorMessage: String?,
-    onPeriodSelected: (String) -> Unit,
-    onRefresh: () -> Unit,
-    onLogout: () -> Unit,
+    providers: List<TopologyProvider> = emptyList(),
+    selectedProvider: TopologyProvider? = null,
+    selectedPeriod: String = "today",
+    isLoading: Boolean = false,
+    isOffline: Boolean = false,
+    isStreaming: Boolean = false,
+    errorMessage: String? = null,
+    onPeriodSelected: (String) -> Unit = {},
+    onProviderTap: (TopologyProvider) -> Unit = {},
+    onDismissProviderDetail: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Sesuai SegmentedControl di web 9Router: Today, 24h, 7D, 30D, 60D
@@ -232,42 +242,16 @@ fun DashboardContent(
                     }
                 }
 
-                // Solar System Card (Matahari = total, Planet = model)
+                // 9Router Provider Topology (1:1 dengan ProviderTopology.js di web)
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "SOLAR SYSTEM",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = 0.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "${stats.byModel.size} models active",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            SolarSystemView(
-                                stats = stats,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(290.dp)
-                            )
-                        }
-                    }
+                    SolarSystemView(
+                        stats = stats,
+                        providers = providers,
+                        onProviderTap = onProviderTap,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(320.dp)
+                    )
                 }
 
                 // Recent Requests: Tabel ramping meniru RecentRequests di UsageStats.js
@@ -341,6 +325,154 @@ fun DashboardContent(
 
             item {
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Modal Bottom Sheet detail provider saat ditap
+        if (selectedProvider != null) {
+            ProviderDetailBottomSheet(
+                provider = selectedProvider,
+                stats = stats,
+                onDismiss = onDismissProviderDetail
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProviderDetailBottomSheet(
+    provider: TopologyProvider,
+    stats: UsageStatsResponse?,
+    onDismiss: () -> Unit
+) {
+    val meta = ProviderCatalog.get(provider.provider)
+    val stat = stats?.byProvider?.get(provider.provider.lowercase())
+    val activeModels = stats?.activeRequests
+        ?.filter { it.provider.equals(provider.provider, ignoreCase = true) }
+        ?.map { it.model }
+        ?.distinct()
+        ?: emptyList()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header: Icon tile + Nama Provider + ID
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    color = meta.color.copy(alpha = 0.16f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = meta.textIcon,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = meta.color
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = provider.displayLabel.ifBlank { meta.name },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = provider.provider,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Divider(color = MaterialTheme.colorScheme.outline)
+
+            // Status koneksi & active models
+            if (activeModels.isNotEmpty()) {
+                Surface(
+                    color = ColorSuccess.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, ColorSuccess.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(ColorSuccess, CircleShape)
+                        )
+                        Text(
+                            text = "Active Now: ${activeModels.joinToString(", ")}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ColorSuccess
+                        )
+                    }
+                }
+            }
+
+            // Metrik kartu ringkasan provider
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                WebStyleCard(
+                    label = "REQUESTS",
+                    value = DecimalFormat("#,###").format(stat?.requests ?: 0L),
+                    valueColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                WebStyleCard(
+                    label = "COST",
+                    value = "$${DecimalFormat("#0.000").format(stat?.cost ?: 0.0)}",
+                    valueColor = ColorWarning,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                WebStyleCard(
+                    label = "PROMPT",
+                    value = formatTokens(stat?.promptTokens ?: 0L),
+                    valueColor = NineRouterBrand,
+                    modifier = Modifier.weight(1f)
+                )
+                WebStyleCard(
+                    label = "CACHED",
+                    value = formatTokens(stat?.cachedTokens ?: 0L),
+                    valueColor = ColorInfo,
+                    modifier = Modifier.weight(1f)
+                )
+                WebStyleCard(
+                    label = "OUTPUT",
+                    value = formatTokens(stat?.completionTokens ?: 0L),
+                    valueColor = ColorSuccess,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }

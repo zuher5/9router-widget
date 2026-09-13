@@ -3,16 +3,44 @@ package com.ninerouter.monitor
 import com.ninerouter.monitor.data.model.*
 
 object PreviewData {
+
+    val sampleProviders = listOf(
+        TopologyProvider(id = "anthropic", provider = "anthropic", name = "Anthropic"),
+        TopologyProvider(id = "openai", provider = "openai", name = "OpenAI"),
+        TopologyProvider(id = "opencode", provider = "opencode", name = "OpenCode Free"),
+        TopologyProvider(id = "google", provider = "google", name = "Google"),
+        TopologyProvider(id = "deepseek", provider = "deepseek", name = "DeepSeek"),
+        TopologyProvider(id = "groq", provider = "groq", name = "Groq"),
+        TopologyProvider(id = "openrouter", provider = "openrouter", name = "OpenRouter")
+    )
+
     val sampleStats = UsageStatsResponse(
         totalRequests = 12543,
         totalPromptTokens = 8420300,
         totalCompletionTokens = 1942000,
         totalCachedTokens = 3100000,
         totalCost = 14.8250,
+        activeRequests = listOf(
+            ActiveRequestItem(
+                id = "req-1",
+                model = "claude-sonnet-4-5",
+                provider = "anthropic",
+                startTime = System.currentTimeMillis() - 2400
+            ),
+            ActiveRequestItem(
+                id = "req-2",
+                model = "muse-spark-1.3",
+                provider = "opencode",
+                startTime = System.currentTimeMillis() - 1100
+            )
+        ),
+        errorProvider = "groq",
         byProvider = mapOf(
             "anthropic" to ProviderStat(requests = 6200, promptTokens = 4500000, completionTokens = 1200000, cost = 9.40),
             "openai" to ProviderStat(requests = 4100, promptTokens = 2600000, completionTokens = 500000, cost = 4.12),
-            "google" to ProviderStat(requests = 2243, promptTokens = 1320300, completionTokens = 242000, cost = 1.305)
+            "opencode" to ProviderStat(requests = 1800, promptTokens = 900000, completionTokens = 200000, cost = 0.0),
+            "google" to ProviderStat(requests = 2243, promptTokens = 1320300, completionTokens = 242000, cost = 1.305),
+            "deepseek" to ProviderStat(requests = 850, promptTokens = 450000, completionTokens = 90000, cost = 0.22)
         ),
         byModel = mapOf(
             "claude-sonnet-4-5 (anthropic)" to ModelStat(

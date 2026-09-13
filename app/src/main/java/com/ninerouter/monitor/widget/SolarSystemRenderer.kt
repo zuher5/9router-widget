@@ -1,29 +1,21 @@
 package com.ninerouter.monitor.widget
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
+import com.ninerouter.monitor.data.model.TopologyProvider
 import com.ninerouter.monitor.data.model.UsageStatsResponse
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
+import com.ninerouter.monitor.ui.solar.EdgeStatus
+import com.ninerouter.monitor.ui.solar.ProviderCatalog
+import com.ninerouter.monitor.ui.solar.TopologyGeometry
+import com.ninerouter.monitor.ui.solar.TopologyLayout
 
 object SolarSystemRenderer {
 
-    // Palet warna tema 9Router
+    // Palet warna resmi tema 9Router
     private val BRAND_COLOR = Color.rgb(0xE5, 0x6A, 0x4A) // #E56A4A
-    private val PLANET_COLORS = intArrayOf(
-        Color.rgb(0xE5, 0x6A, 0x4A), // Brand terracotta
-        Color.rgb(0x3B, 0x82, 0xF6), // Blue
-        Color.rgb(0x10, 0xB9, 0x81), // Green
-        Color.rgb(0xF5, 0x9E, 0x0B), // Amber
-        Color.rgb(0x8B, 0x5C, 0xF6)  // Purple
-    )
 
     fun render(
         stats: UsageStatsResponse,
+        providers: List<TopologyProvider> = emptyList(),
         widthPx: Int = 600,
         heightPx: Int = 280,
         isDark: Boolean = true
@@ -31,109 +23,230 @@ object SolarSystemRenderer {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val centerX = widthPx / 2f
-        val centerY = heightPx / 2f
-        val maxRadius = min(widthPx, heightPx) / 2f * 0.88f
+        // Siapkan list provider efektif
+        val effectiveProviders = if (providers.isNotEmpty()) {
+            providers
+        } else {
+            val list = stats.byProvider.keys.map {
+                TopologyProvider(id = it, provider = it, name = it)
+            }.toMutableList()
+            if (list.none { it.provider.equals("opencode", ignoreCase = true) }) {
+                list.add(TopologyProvider(id = "opencode", provider = "opencode", name = "OpenCode Free"))
+            }
+            list
+        }
 
-        // Orbit rings paint
-        val orbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (isDark) Color.argb(55, 255, 255, 255) else Color.argb(40, 0, 0, 0)
+        val activeSet = stats.activeRequests.map { it.provider.lowercase() }.toSet()
+        val lastProvider = stats.recentRequests.firstOrNull()?.provider.orEmpty()
+        val errorProvider = stats.errorProvider.orEmpty()
+
+        val layout = TopologyGeometry.build(
+            providers = effectiveProviders,
+            activeProviders = activeSet,
+            lastProvider = lastProvider,
+            errorProvider = errorProvider
+        )
+
+        val (fitScale, fitOffset) = layout.computeFitTransform(
+            widthPx.toFloat(),
+            heightPx.toFloat(),
+            paddingFraction = 0.14f
+        )
+
+        val borderColor = if (isDark) Color.rgb(0x38, 0x38, 0x38) else Color.rgb(0xDC, 0xDC, 0xDC)
+        val textColor = if (isDark) Color.rgb(0xED, 0xED, 0xED) else Color.rgb(0x0A, 0x0A, 0x0A)
+        val nodeBgColor = if (isDark) Color.rgb(0x22, 0x22, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
+
+        // 1. Gambar EDGES
+        layout.edges.forEach { edge ->
+            val androidPath = Path()
+            val srcX = edge.sourcePoint.x * fitScale + fitOffset.x
+            val srcY = edge.sourcePoint.y * fitScale + fitOffset.y
+            val dstX = edge.targetPoint.x * fitScale + fitOffset.x
+            val dstY = edge.targetPoint.y * fitScale + fitOffset.y
+            val cp1X = edge.controlPoint1.x * fitScale + fitOffset.x
+            val cp1Y = edge.controlPoint1.y * fitScale + fitOffset.y
+            val cp2X = edge.controlPoint2.x * fitScale + fitOffset.x
+            val cp2Y = edge.controlPoint2.y * fitScale + fitOffset.y
+
+            androidPath.moveTo(srcX, srcY)
+            androidPath.cubicTo(cp1X, cp1Y, cp2X, cp2Y, dstX, dstY)
+
+            when (edge.status) {
+                EdgeStatus.IDLE -> {
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.argb(80, Color.red(borderColor), Color.green(borderColor), Color.blue(borderColor))
+                        style = Paint.Style.STROKE
+                        strokeWidth = 1.4f
+                    }
+                    canvas.drawPath(androidPath, paint)
+                }
+                EdgeStatus.LAST -> {
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.argb(200, 0xF5, 0x9E, 0x0B)
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2.4f
+                    }
+                    canvas.drawPath(androidPath, paint)
+                }
+                EdgeStatus.ERROR -> {
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.argb(230, 0xEF, 0x44, 0x44)
+                        style = Paint.Style.STROKE
+                        strokeWidth = 3f
+                    }
+                    canvas.drawPath(androidPath, paint)
+                }
+                EdgeStatus.ACTIVE -> {
+                    // Frame statis beam aktif: layered halo + plasma + core
+                    val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.argb(85, 0x22, 0xD3, 0xEE)
+                        style = Paint.Style.STROKE
+                        strokeWidth = 8f * fitScale.coerceAtLeast(0.7f)
+                        strokeCap = Paint.Cap.ROUND
+                    }
+                    val plasmaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.argb(210, 0x4A, 0xDE, 0x80)
+                        style = Paint.Style.STROKE
+                        strokeWidth = 4f * fitScale.coerceAtLeast(0.7f)
+                        strokeCap = Paint.Cap.ROUND
+                    }
+                    val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = Color.WHITE
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2f * fitScale.coerceAtLeast(0.7f)
+                        strokeCap = Paint.Cap.ROUND
+                    }
+                    canvas.drawPath(androidPath, haloPaint)
+                    canvas.drawPath(androidPath, plasmaPaint)
+                    canvas.drawPath(androidPath, corePaint)
+                }
+            }
+        }
+
+        // 2. Gambar ROUTER NODE
+        val rLeft = layout.routerNode.bounds.left * fitScale + fitOffset.x
+        val rTop = layout.routerNode.bounds.top * fitScale + fitOffset.y
+        val rWidth = layout.routerNode.bounds.width * fitScale
+        val rHeight = layout.routerNode.bounds.height * fitScale
+        val rRadius = 10f * fitScale
+
+        val powering = activeSet.isNotEmpty()
+
+        val routerBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            if (powering) {
+                shader = LinearGradient(
+                    rLeft, rTop, rLeft + rWidth, rTop + rHeight,
+                    Color.argb(80, 0xE5, 0x6A, 0x4A),
+                    Color.argb(60, 0x22, 0xD3, 0xEE),
+                    Shader.TileMode.CLAMP
+                )
+            } else {
+                color = Color.argb(if (isDark) 30 else 18, 0xE5, 0x6A, 0x4A)
+            }
+        }
+        val routerBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 1.5f
+            color = if (powering) Color.rgb(0xFD, 0xE0, 0x47) else BRAND_COLOR
+            strokeWidth = 2f * fitScale.coerceAtLeast(0.8f)
         }
+        val routerRect = RectF(rLeft, rTop, rLeft + rWidth, rTop + rHeight)
+        canvas.drawRoundRect(routerRect, rRadius, rRadius, routerBgPaint)
+        canvas.drawRoundRect(routerRect, rRadius, rRadius, routerBorderPaint)
 
-        // Matahari glow paint
-        val sunGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(45, 0xE5, 0x6A, 0x4A)
-            style = Paint.Style.FILL
-        }
-
-        // Matahari paint
-        val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = BRAND_COLOR
-            style = Paint.Style.FILL
-        }
-
-        // Teks pusat "9R"
-        val centerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 20f
+        val routerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (powering) Color.rgb(0xFD, 0xE0, 0x47) else BRAND_COLOR
+            textSize = 13f * fitScale.coerceIn(0.8f, 1.4f)
             isFakeBoldText = true
             textAlign = Paint.Align.CENTER
         }
+        val textY = rTop + (rHeight / 2f) + (routerTextPaint.textSize / 3f)
+        canvas.drawText("9Router", rLeft + (rWidth / 2f), textY, routerTextPaint)
 
-        // Gambar Matahari di pusat
-        val sunRadius = 24f
-        canvas.drawCircle(centerX, centerY, sunRadius + 12f, sunGlowPaint)
-        canvas.drawCircle(centerX, centerY, sunRadius, sunPaint)
+        // 3. Gambar PROVIDER NODES
+        layout.providerNodes.forEach { node ->
+            val pLeft = node.bounds.left * fitScale + fitOffset.x
+            val pTop = node.bounds.top * fitScale + fitOffset.y
+            val pWidth = node.bounds.width * fitScale
+            val pHeight = node.bounds.height * fitScale
+            val pRadius = 7f * fitScale
 
-        val bounds = Rect()
-        centerTextPaint.getTextBounds("9R", 0, 2, bounds)
-        canvas.drawText("9R", centerX, centerY + (bounds.height() / 2f), centerTextPaint)
-
-        // Model teratas
-        val models = stats.byModel.values.toList()
-            .sortedByDescending { it.totalTokens.takeIf { t -> t > 0 } ?: it.requests }
-            .take(5)
-
-        val maxMetric = models.maxOfOrNull { it.totalTokens.takeIf { t -> t > 0 } ?: it.requests } ?: 1L
-
-        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (isDark) Color.rgb(0x9C, 0xA3, 0xAF) else Color.rgb(0x4B, 0x55, 0x63)
-            textSize = 15f
-            textAlign = Paint.Align.CENTER
-        }
-
-        val planetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-        }
-
-        val planetGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-        }
-
-        val orbitStep = (maxRadius - sunRadius - 16f) / (models.size.coerceAtLeast(1) + 0.3f)
-
-        models.forEachIndexed { index, model ->
-            val orbitRadius = sunRadius + 18f + (orbitStep * (index + 0.8f))
-
-            // Lintasan orbit
-            canvas.drawCircle(centerX, centerY, orbitRadius, orbitPaint)
-
-            // Posisi planet statis di sudut berbeda
-            val angleDeg = (index * 68.0) + 35.0
-            val angleRad = Math.toRadians(angleDeg)
-            val planetX = centerX + (orbitRadius * cos(angleRad)).toFloat()
-            val planetY = centerY + (orbitRadius * sin(angleRad)).toFloat()
-
-            val metricVal = (model.totalTokens.takeIf { it > 0 } ?: model.requests).toFloat()
-            val planetRadius = 7f + ((metricVal / maxMetric.toFloat()) * 9f)
-            val planetColor = PLANET_COLORS[index % PLANET_COLORS.size]
-
-            // Glow planet
-            planetGlowPaint.color = Color.argb(
-                50,
-                Color.red(planetColor),
-                Color.green(planetColor),
-                Color.blue(planetColor)
+            val meta = ProviderCatalog.get(node.meta.id)
+            val pColorInt = Color.rgb(
+                (meta.color.red * 255).toInt(),
+                (meta.color.green * 255).toInt(),
+                (meta.color.blue * 255).toInt()
             )
-            canvas.drawCircle(planetX, planetY, planetRadius + 3.5f, planetGlowPaint)
+            val isActive = activeSet.contains(node.meta.id.lowercase())
 
-            // Badan planet
-            planetPaint.color = planetColor
-            canvas.drawCircle(planetX, planetY, planetRadius, planetPaint)
+            val nodeRect = RectF(pLeft, pTop, pLeft + pWidth, pTop + pHeight)
 
-            // Nama model bersih di bawah planet (berjarak aman)
-            val raw = model.rawModel.ifBlank { model.provider }
-            val shortName = when {
-                raw.contains("claude", ignoreCase = true) && raw.contains("sonnet", ignoreCase = true) -> "sonnet"
-                raw.contains("claude", ignoreCase = true) && raw.contains("haiku", ignoreCase = true) -> "haiku"
-                raw.contains("gpt-4", ignoreCase = true) -> "gpt-4o"
-                raw.contains("gemini", ignoreCase = true) -> "gemini"
-                raw.contains("o3", ignoreCase = true) -> "o3"
-                else -> raw.take(7)
+            // Background node
+            val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = nodeBgColor
+                style = Paint.Style.FILL
             }
-            canvas.drawText(shortName, planetX, planetY + planetRadius + 14f, labelPaint)
+            canvas.drawRoundRect(nodeRect, pRadius, pRadius, bgPaint)
+
+            // Border
+            val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                color = if (isActive) pColorInt else borderColor
+                strokeWidth = (if (isActive) 2f else 1.2f) * fitScale.coerceAtLeast(0.7f)
+            }
+            canvas.drawRoundRect(nodeRect, pRadius, pRadius, borderPaint)
+
+            // Icon tile (textIcon)
+            val tileSize = 22f * fitScale
+            val tileLeft = pLeft + (5f * fitScale)
+            val tileTop = pTop + (pHeight - tileSize) / 2f
+            val tileRect = RectF(tileLeft, tileTop, tileLeft + tileSize, tileTop + tileSize)
+            val tileRadius = 4f * fitScale
+
+            val tileBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(40, Color.red(pColorInt), Color.green(pColorInt), Color.blue(pColorInt))
+                style = Paint.Style.FILL
+            }
+            canvas.drawRoundRect(tileRect, tileRadius, tileRadius, tileBgPaint)
+
+            val tileTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = pColorInt
+                textSize = 9.5f * fitScale.coerceIn(0.7f, 1.3f)
+                isFakeBoldText = true
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText(
+                meta.textIcon,
+                tileLeft + (tileSize / 2f),
+                tileTop + (tileSize / 2f) + (tileTextPaint.textSize / 3f),
+                tileTextPaint
+            )
+
+            // Nama provider
+            val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (isActive) pColorInt else textColor
+                textSize = 10f * fitScale.coerceIn(0.7f, 1.2f)
+                isFakeBoldText = isActive
+                textAlign = Paint.Align.LEFT
+            }
+            val displayName = (node.provider?.displayLabel ?: meta.name).take(13)
+            val nameY = pTop + (pHeight / 2f) + (namePaint.textSize / 3f)
+            canvas.drawText(displayName, tileLeft + tileSize + (5f * fitScale), nameY, namePaint)
+
+            // Dot aktif
+            if (isActive) {
+                val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = pColorInt
+                    style = Paint.Style.FILL
+                }
+                canvas.drawCircle(
+                    pLeft + pWidth - (8f * fitScale),
+                    pTop + pHeight / 2f,
+                    3f * fitScale,
+                    dotPaint
+                )
+            }
         }
 
         return bitmap
