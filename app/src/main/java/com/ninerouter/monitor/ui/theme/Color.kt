@@ -3,15 +3,15 @@ package com.ninerouter.monitor.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Cyber Obsidian Theme Core
-val ObsidianBg = Color(0xFF0B0D14)          // Background layar utama
-val ObsidianSurface = Color(0xFF121622)     // Background Card & Containers
-val ObsidianSurfaceVariant = Color(0xFF1B2030) // Elevated Surface
-val ObsidianCardElevated = Color(0xFF22283C) // High Elevated Card
-val ObsidianBorder = Color(0xFF1E293B)      // Frosted glass border stroke
-val ObsidianBorderSubtle = Color(0xFF1E293B).copy(alpha = 0.6f)
-val ObsidianGlassBorder = Color(0x1FFFFFFF) // 12% white
-val ObsidianGlassBorderSubtle = Color(0x0FFFFFFF) // 6% white
+// Cyber Obsidian Theme Core (Soft Slate Navy - not pitch black)
+val ObsidianBg = Color(0xFF131826)          // Background layar utama
+val ObsidianSurface = Color(0xFF1C2333)     // Background Card & Containers
+val ObsidianSurfaceVariant = Color(0xFF242D40) // Elevated Surface / Pills
+val ObsidianCardElevated = Color(0xFF2B364C) // High Elevated Card / Dialogs
+val ObsidianBorder = Color(0xFF334155)      // Slate frosted glass border stroke
+val ObsidianBorderSubtle = Color(0xFF334155).copy(alpha = 0.6f)
+val ObsidianGlassBorder = Color(0x33FFFFFF) // 20% white
+val ObsidianGlassBorderSubtle = Color(0x1AFFFFFF) // 10% white
 
 // Neon Accent Palette
 val NeonCoral = Color(0xFFFF6F59)           // Primary Brand, Alert/Error
@@ -59,9 +59,9 @@ val BrandGradient = Brush.horizontalGradient(
 )
 
 val CardGlassGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xFF171B27), Color(0xFF11141E))
+    colors = listOf(Color(0xFF222B3D), Color(0xFF182030))
 )
 
 val HeroCardGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFF1C2234), Color(0xFF131622))
+    colors = listOf(Color(0xFF253045), Color(0xFF1A2234))
 )

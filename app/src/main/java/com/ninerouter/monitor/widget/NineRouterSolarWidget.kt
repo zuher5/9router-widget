@@ -72,7 +72,7 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                     .fillMaxSize()
                     .cornerRadius(16.dp)
                     .background(bgDark)
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
                     .clickable(actionStartActivity<MainActivity>()),
                 contentAlignment = Alignment.Center
             ) {
@@ -147,9 +147,9 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                             }
                         }
 
-                        Spacer(modifier = GlanceModifier.height(3.dp))
+                        Spacer(modifier = GlanceModifier.height(1.dp))
 
-                        // 2. CENTER AREA: HD Solar Topology Radar Scope
+                        // 2. CENTER AREA: HD Solar Topology Radar Scope (Close-Up & Prominent)
                         Box(
                             modifier = GlanceModifier
                                 .fillMaxWidth()
@@ -159,12 +159,12 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                             Image(
                                 provider = ImageProvider(bitmap),
                                 contentDescription = "9Router Topology",
-                                contentScale = ContentScale.Fit,
+                                contentScale = ContentScale.FillBounds,
                                 modifier = GlanceModifier.fillMaxSize()
                             )
                         }
 
-                        Spacer(modifier = GlanceModifier.height(3.dp))
+                        Spacer(modifier = GlanceModifier.height(1.dp))
 
                         // 3. BOTTOM BAR NATIVE GLANCE
                         val activeReq = stats.activeRequests.firstOrNull()

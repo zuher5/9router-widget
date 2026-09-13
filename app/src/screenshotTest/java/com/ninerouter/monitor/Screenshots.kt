@@ -97,7 +97,7 @@ class Screenshots {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0D14), RoundedCornerShape(16.dp))
+                .background(Color(0xFF131826), RoundedCornerShape(16.dp))
                 .padding(4.dp),
             contentAlignment = Alignment.Center
         ) {
