@@ -11,7 +11,7 @@ import java.text.DecimalFormat
 
 object SolarSystemRenderer {
 
-    private val BRAND_COLOR = Color.rgb(0xE5, 0x6A, 0x4A) // #E56A4A
+    private val BRAND_COLOR = Color.rgb(0xFF, 0x6F, 0x59) // #FF6F59
 
     fun render(
         stats: UsageStatsResponse,
@@ -63,14 +63,34 @@ object SolarSystemRenderer {
             paddingFraction = 0.08f
         )
 
-        val borderColor = if (isDark) Color.rgb(0x38, 0x38, 0x38) else Color.rgb(0xDC, 0xDC, 0xDC)
-        val textColor = if (isDark) Color.rgb(0xED, 0xED, 0xED) else Color.rgb(0x0A, 0x0A, 0x0A)
-        val textMutedColor = if (isDark) Color.rgb(0x9C, 0xA3, 0xAF) else Color.rgb(0x6B, 0x72, 0x80)
-        val nodeBgColor = if (isDark) Color.rgb(0x22, 0x22, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
+        val borderColor = if (isDark) Color.argb(32, 255, 255, 255) else Color.rgb(0xDC, 0xDC, 0xDC)
+        val textColor = if (isDark) Color.rgb(0xF8, 0xFA, 0xFC) else Color.rgb(0x0A, 0x0A, 0x0A)
+        val textMutedColor = if (isDark) Color.rgb(0x94, 0xA3, 0xB8) else Color.rgb(0x6B, 0x72, 0x80)
+        val nodeBgColor = if (isDark) Color.rgb(0x13, 0x17, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
 
         canvas.save()
         canvas.translate(fitOffset.x, fitOffset.y)
         canvas.scale(fitScale, fitScale)
+
+        // 0. Radar Scope Background
+        if (layout.rx > 0f && layout.ry > 0f) {
+            val orbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                color = Color.argb(22, 255, 255, 255)
+                strokeWidth = 1.2f
+            }
+            val orbitRect = RectF(-layout.rx, -layout.ry, layout.rx, layout.ry)
+            canvas.drawOval(orbitRect, orbitPaint)
+
+            val orbitDashedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                color = Color.argb(14, 255, 255, 255)
+                strokeWidth = 1f
+                pathEffect = DashPathEffect(floatArrayOf(6f, 6f), 0f)
+            }
+            val orbitMidRect = RectF(-layout.rx * 0.65f, -layout.ry * 0.65f, layout.rx * 0.65f, layout.ry * 0.65f)
+            canvas.drawOval(orbitMidRect, orbitDashedPaint)
+        }
 
         // 1. Gambar EDGES di world space
         layout.edges.forEach { edge ->

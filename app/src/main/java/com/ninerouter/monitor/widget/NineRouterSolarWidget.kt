@@ -38,9 +38,9 @@ class NineRouterSolarWidget : GlanceAppWidget() {
         val providers = repository.getCachedProviders()
 
         provideContent {
-            val bgDark = ColorProvider(android.graphics.Color.rgb(0x14, 0x14, 0x14))
-            val textMuted = ColorProvider(android.graphics.Color.rgb(0x9C, 0xA3, 0xAF))
-            val brandColor = ColorProvider(android.graphics.Color.rgb(0xE5, 0x6A, 0x4A))
+            val bgDark = ColorProvider(android.graphics.Color.rgb(0x0B, 0x0D, 0x14))
+            val textMuted = ColorProvider(android.graphics.Color.rgb(0x94, 0xA3, 0xB8))
+            val brandColor = ColorProvider(android.graphics.Color.rgb(0xFF, 0x6F, 0x59))
 
             val glanceContext = LocalContext.current
             val glanceSize = LocalSize.current

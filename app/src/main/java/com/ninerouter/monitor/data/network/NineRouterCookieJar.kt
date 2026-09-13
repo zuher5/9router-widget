@@ -4,15 +4,16 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 class NineRouterCookieJar : CookieJar {
-    private val cookieStore = ConcurrentHashMap<String, MutableList<Cookie>>()
+    private val cookieStore = ConcurrentHashMap<String, CopyOnWriteArrayList<Cookie>>()
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         val host = url.host
-        val currentCookies = cookieStore.getOrPut(host) { mutableListOf() }
+        val currentCookies = cookieStore.getOrPut(host) { CopyOnWriteArrayList() }
         cookies.forEach { newCookie ->
-            currentCookies.removeAll { it.name == newCookie.name }
+            currentCookies.removeIf { it.name == newCookie.name }
             currentCookies.add(newCookie)
         }
     }
@@ -21,7 +22,7 @@ class NineRouterCookieJar : CookieJar {
         val host = url.host
         val list = cookieStore[host] ?: return emptyList()
         val now = System.currentTimeMillis()
-        list.removeAll { it.expiresAt < now }
+        list.removeIf { it.expiresAt < now }
         return list.toList()
     }
 

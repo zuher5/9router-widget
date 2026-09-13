@@ -136,18 +136,18 @@ fun SolarSystemView(
         label = "ping_alpha"
     )
 
-    val borderColor = MaterialTheme.colorScheme.outline
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val textMutedColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val nodeBgColor = MaterialTheme.colorScheme.surface
+    val borderColor = ObsidianGlassBorder
+    val textColor = ColorTextPrimary
+    val textMutedColor = ColorTextSecondary
+    val nodeBgColor = ObsidianSurface
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isDark) Color(0xFF141414) else Color(0xFFF9F7F4))
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .background(ObsidianBg)
+            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
     ) {
         if (effectiveProviders.isEmpty()) {
             Box(
@@ -199,11 +199,53 @@ fun SolarSystemView(
                 val totalScale = fitScale * userScale
                 val totalOffset = fitOffset * userScale + userPan
 
-                // Gunakan withTransform untuk mentransformasi seluruh world coordinate secara presisi (termasuk font & shapes)
+                // Gunakan withTransform untuk mentransformasi seluruh world coordinate secara presisi
                 withTransform({
                     translate(totalOffset.x, totalOffset.y)
                     scale(totalScale, totalScale, pivot = Offset.Zero)
                 }) {
+                    // 0. Gambar RADAR ORBIT & GRID BACKGROUND di world space
+                    if (layout.rx > 0f && layout.ry > 0f) {
+                        val orbitColor1 = Color(0x18FFFFFF)
+                        val orbitColor2 = Color(0x0EFFFFFF)
+                        val crosshairColor = Color(0x0AFFFFFF)
+
+                        // Outer orbit ring
+                        drawOval(
+                            color = orbitColor1,
+                            topLeft = Offset(-layout.rx, -layout.ry),
+                            size = Size(layout.rx * 2f, layout.ry * 2f),
+                            style = Stroke(width = 1.2f)
+                        )
+                        // Middle dashed orbit ring
+                        drawOval(
+                            color = orbitColor2,
+                            topLeft = Offset(-layout.rx * 0.65f, -layout.ry * 0.65f),
+                            size = Size(layout.rx * 1.3f, layout.ry * 1.3f),
+                            style = Stroke(width = 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                        )
+                        // Inner orbit ring
+                        drawOval(
+                            color = orbitColor2,
+                            topLeft = Offset(-layout.rx * 0.35f, -layout.ry * 0.35f),
+                            size = Size(layout.rx * 0.7f, layout.ry * 0.7f),
+                            style = Stroke(width = 0.8f)
+                        )
+                        // Crosshairs
+                        drawLine(
+                            color = crosshairColor,
+                            start = Offset(-layout.rx * 1.25f, 0f),
+                            end = Offset(layout.rx * 1.25f, 0f),
+                            strokeWidth = 1f
+                        )
+                        drawLine(
+                            color = crosshairColor,
+                            start = Offset(0f, -layout.ry * 1.25f),
+                            end = Offset(0f, layout.ry * 1.25f),
+                            strokeWidth = 1f
+                        )
+                    }
+
                     // 1. Gambar EDGES di world space
                     layout.edges.forEach { edge ->
                         drawTopologyEdgeWorld(
@@ -237,47 +279,81 @@ fun SolarSystemView(
                 }
             }
 
-            // Controls overlay pojok kiri bawah (persis ReactFlow Controls)
+            // Topology Scope Badge di pojok kiri atas
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = ObsidianSurfaceVariant.copy(alpha = 0.85f),
+                border = BorderStroke(1.dp, ObsidianGlassBorder)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(
+                                if (activeProviderSet.isNotEmpty()) ColorSuccess else ColorTextMuted,
+                                CircleShape
+                            )
+                    )
+                    Text(
+                        text = "TOPOLOGY • ${effectiveProviders.size} NODES${if (activeProviderSet.isNotEmpty()) " • ${activeProviderSet.size} ACTIVE" else ""}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        color = ColorTextSecondary
+                    )
+                }
+            }
+
+            // Controls overlay pojok kiri bawah
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(10.dp),
-                shape = RoundedCornerShape(6.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, borderColor),
-                shadowElevation = 2.dp
+                    .padding(12.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = ObsidianSurfaceVariant.copy(alpha = 0.88f),
+                border = BorderStroke(1.dp, ObsidianGlassBorder)
             ) {
                 Row(
-                    modifier = Modifier.padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { userScale = (userScale * 1.25f).coerceAtMost(3.0f) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("+", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = textColor)
+                        Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                     }
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { userScale = (userScale * 0.8f).coerceAtLeast(0.6f) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("−", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = textColor)
+                        Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                     }
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable {
                                 userScale = 1f
                                 userPan = Offset.Zero
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("⛶", fontSize = 12.sp, color = textMutedColor)
+                        Text("⛶", fontSize = 13.sp, color = textMutedColor)
                     }
                 }
             }

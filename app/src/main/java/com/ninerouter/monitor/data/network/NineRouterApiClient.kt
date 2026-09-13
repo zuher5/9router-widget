@@ -55,21 +55,23 @@ class NineRouterApiClient(
                 }
 
                 override fun onResponse(call: Call, response: Response) {
-                    val raw = response.body?.string().orEmpty()
-                    try {
-                        if (response.isSuccessful) {
-                            val parsed = json.decodeFromString(LoginResponse.serializer(), raw)
-                            continuation.resume(Result.success(parsed))
-                        } else {
-                            val errResp = try {
-                                json.decodeFromString(LoginResponse.serializer(), raw)
-                            } catch (e: Exception) {
-                                LoginResponse(success = false, error = "HTTP ${response.code}: $raw")
+                    response.use { resp ->
+                        val raw = resp.body?.string().orEmpty()
+                        try {
+                            if (resp.isSuccessful) {
+                                val parsed = json.decodeFromString(LoginResponse.serializer(), raw)
+                                continuation.resume(Result.success(parsed))
+                            } else {
+                                val errResp = try {
+                                    json.decodeFromString(LoginResponse.serializer(), raw)
+                                } catch (e: Exception) {
+                                    LoginResponse(success = false, error = "HTTP ${resp.code}: $raw")
+                                }
+                                continuation.resume(Result.success(errResp))
                             }
-                            continuation.resume(Result.success(errResp))
+                        } catch (e: Exception) {
+                            continuation.resume(Result.failure(e))
                         }
-                    } catch (e: Exception) {
-                        continuation.resume(Result.failure(e))
                     }
                 }
             })
@@ -116,27 +118,28 @@ class NineRouterApiClient(
         val thread = Thread {
             try {
                 val response = call.execute()
-                if (!response.isSuccessful) {
-                    close(IOException("HTTP ${response.code}"))
-                    return@Thread
-                }
-                val source = response.body?.byteStream() ?: run {
-                    close(IOException("Empty SSE body"))
-                    return@Thread
-                }
-                val reader = BufferedReader(InputStreamReader(source))
-                var line: String?
-                val dataBuffer = StringBuilder()
-                while (reader.readLine().also { line = it } != null) {
-                    val l = line ?: break
-                    if (l.startsWith("data:")) {
-                        val payload = l.removePrefix("data:").trim()
-                        if (payload.isNotEmpty()) {
-                            try {
-                                val parsed = json.decodeFromString<StreamUpdatePayload>(payload)
-                                trySend(parsed)
-                            } catch (_: Exception) {
-                                // Abaikan format payload yang berbeda (mis. full stats saat init)
+                response.use { resp ->
+                    if (!resp.isSuccessful) {
+                        close(IOException("HTTP ${resp.code}"))
+                        return@Thread
+                    }
+                    val source = resp.body?.byteStream() ?: run {
+                        close(IOException("Empty SSE body"))
+                        return@Thread
+                    }
+                    val reader = BufferedReader(InputStreamReader(source))
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        val l = line ?: break
+                        if (l.startsWith("data:")) {
+                            val payload = l.removePrefix("data:").trim()
+                            if (payload.isNotEmpty()) {
+                                try {
+                                    val parsed = json.decodeFromString<StreamUpdatePayload>(payload)
+                                    trySend(parsed)
+                                } catch (_: Exception) {
+                                    // Abaikan format payload yang berbeda
+                                }
                             }
                         }
                     }
@@ -165,8 +168,10 @@ class NineRouterApiClient(
                     continuation.resume(Result.failure(e))
                 }
                 override fun onResponse(call: Call, response: Response) {
-                    cookieJar.clear()
-                    continuation.resume(Result.success(response.isSuccessful))
+                    response.use { resp ->
+                        cookieJar.clear()
+                        continuation.resume(Result.success(resp.isSuccessful))
+                    }
                 }
             })
         }
@@ -182,16 +187,18 @@ class NineRouterApiClient(
                 }
 
                 override fun onResponse(call: Call, response: Response) {
-                    if (!response.isSuccessful) {
-                        continuation.resume(Result.failure(IOException("HTTP ${response.code}: ${response.message}")))
-                        return
-                    }
-                    val body = response.body?.string().orEmpty()
-                    try {
-                        val parsed = json.decodeFromString<T>(body)
-                        continuation.resume(Result.success(parsed))
-                    } catch (e: Exception) {
-                        continuation.resume(Result.failure(e))
+                    response.use { resp ->
+                        if (!resp.isSuccessful) {
+                            continuation.resume(Result.failure(IOException("HTTP ${resp.code}: ${resp.message}")))
+                            return
+                        }
+                        val body = resp.body?.string().orEmpty()
+                        try {
+                            val parsed = json.decodeFromString<T>(body)
+                            continuation.resume(Result.success(parsed))
+                        } catch (e: Exception) {
+                            continuation.resume(Result.failure(e))
+                        }
                     }
                 }
             })
