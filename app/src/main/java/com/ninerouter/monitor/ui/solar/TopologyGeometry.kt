@@ -94,14 +94,16 @@ data class TopologyLayout(
 }
 
 object TopologyGeometry {
-    const val NODE_WIDTH = 136f
+    const val NODE_WIDTH = 144f
     const val NODE_HEIGHT = 32f
     const val ROUTER_WIDTH = 104f
-    const val ROUTER_HEIGHT = 38f
-    const val NODE_GAP = 14f
+    const val ROUTER_HEIGHT = 36f
+    const val NODE_GAP = 20f
 
     /**
-     * Implementasi layout elips dioptimalkan untuk layar mobile agar mengisi kartu dengan proporsional.
+     * Implementasi layout elips proporsional:
+     * Menjamin keliling elips selalu cukup untuk menampung seluruh node
+     * dengan jarak aman antar node (tanpa overlap).
      */
     fun build(
         providers: List<TopologyProvider>,
@@ -135,10 +137,10 @@ object TopologyGeometry {
             )
         }
 
-        // Elips lebih lebar horizontal dan proporsional vertikal
+        // Hitung keliling minimum agar jarak antar titik >= NODE_WIDTH + NODE_GAP
         val minRx = ((NODE_WIDTH + NODE_GAP) * count) / (2f * PI.toFloat())
-        val rx = max(145f, minRx * 0.72f)
-        val ry = max(96f, rx * 0.60f)
+        val rx = max(210f, minRx)
+        val ry = max(135f, rx * 0.60f)
 
         val providerNodes = mutableListOf<LayoutNode>()
         val edges = mutableListOf<LayoutEdge>()

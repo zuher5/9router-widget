@@ -579,17 +579,17 @@ private fun DrawScope.drawProviderNode(
 
     // 2. Nama Provider
     val displayName = node.provider?.displayLabel?.ifBlank { node.meta.name } ?: node.meta.name
-    val cleanDisplay = displayName.take(13)
+    val cleanDisplay = if (isActive) displayName.take(10) else displayName.take(12)
     val nameResult = textMeasurer.measure(
         text = AnnotatedString(cleanDisplay),
         style = TextStyle(
             color = if (isActive) color else textColor,
-            fontSize = (11f * totalScale.coerceIn(0.75f, 1.25f)).sp,
+            fontSize = (10.5f * totalScale.coerceIn(0.75f, 1.25f)).sp,
             fontWeight = FontWeight.Medium
         )
     )
 
-    val nameLeft = iconTileLeft + iconTileSize + (8f * totalScale)
+    val nameLeft = iconTileLeft + iconTileSize + (7f * totalScale)
     drawText(
         textLayoutResult = nameResult,
         topLeft = Offset(nameLeft, top + (height - nameResult.size.height) / 2f)

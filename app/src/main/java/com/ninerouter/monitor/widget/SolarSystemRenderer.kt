@@ -237,9 +237,10 @@ object SolarSystemRenderer {
                 isFakeBoldText = isActive
                 textAlign = Paint.Align.LEFT
             }
-            val displayName = (node.provider?.displayLabel ?: meta.name).take(12)
+            val displayName = (node.provider?.displayLabel ?: meta.name)
+            val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(12)
             val nameY = pTop + (pHeight / 2f) + (namePaint.textSize / 3f)
-            canvas.drawText(displayName, tileLeft + tileSize + (7f * fitScale), nameY, namePaint)
+            canvas.drawText(cleanDisplay, tileLeft + tileSize + (7f * fitScale), nameY, namePaint)
 
             // Dot aktif
             if (isActive) {
