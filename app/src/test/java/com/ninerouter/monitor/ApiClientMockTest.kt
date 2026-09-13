@@ -76,4 +76,22 @@ class ApiClientMockTest {
         val resp = result.getOrNull()
         assertEquals(3, resp?.remainingBeforeLock)
     }
+
+    @Test
+    fun testCookieJarGetCookiesForHost() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Set-Cookie", "auth_token=jwt_sample_123; Path=/; HttpOnly")
+                .setBody("""{"success": true}""")
+        )
+
+        val baseUrl = server.url("/").toString()
+        client.login(baseUrl, "123456")
+
+        val cookies = client.cookieJar.getCookiesForHost(server.hostName)
+        assertEquals(1, cookies.size)
+        assertEquals("auth_token", cookies[0].name)
+        assertEquals("jwt_sample_123", cookies[0].value)
+    }
 }

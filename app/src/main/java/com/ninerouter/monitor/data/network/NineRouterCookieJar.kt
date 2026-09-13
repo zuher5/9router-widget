@@ -32,4 +32,10 @@ class NineRouterCookieJar : CookieJar {
     fun hasAuthToken(host: String): Boolean {
         return cookieStore[host]?.any { it.name == "auth_token" && it.expiresAt > System.currentTimeMillis() } == true
     }
+
+    fun getCookiesForHost(host: String): List<Cookie> {
+        val list = cookieStore[host] ?: return emptyList()
+        val now = System.currentTimeMillis()
+        return list.filter { it.expiresAt > now }
+    }
 }

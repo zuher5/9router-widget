@@ -89,24 +89,6 @@ class NineRouterApiClient(
         }
     }
 
-    suspend fun getUsageStats(baseUrl: String, period: String = "7d"): Result<UsageStatsResponse> {
-        val url = cleanUrl(baseUrl) + "/api/usage/stats?period=$period"
-        val request = Request.Builder().url(url).get().build()
-        return executeJson(request)
-    }
-
-    suspend fun getChartData(baseUrl: String, period: String = "7d"): Result<List<ChartPoint>> {
-        val url = cleanUrl(baseUrl) + "/api/usage/chart?period=$period"
-        val request = Request.Builder().url(url).get().build()
-        return executeJson(request)
-    }
-
-    suspend fun getRequestDetailsSample(baseUrl: String): Result<RequestDetailsResponse> {
-        val url = cleanUrl(baseUrl) + "/api/usage/request-details?page=1&pageSize=20"
-        val request = Request.Builder().url(url).get().build()
-        return executeJson(request)
-    }
-
     private suspend inline fun <reified T> executeJson(request: Request): Result<T> {
         return suspendCancellableCoroutine { continuation ->
             val call = client.newCall(request)
