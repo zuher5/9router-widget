@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.graphics.Paint as AndroidPaint
@@ -135,7 +136,6 @@ fun SolarSystemView(
         label = "ping_alpha"
     )
 
-    val textMeasurer = rememberTextMeasurer()
     val borderColor = MaterialTheme.colorScheme.outline
     val textColor = MaterialTheme.colorScheme.onSurface
     val textMutedColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -382,7 +382,6 @@ private fun DrawScope.drawTopologyEdgeWorld(
 private fun DrawScope.drawRouterNodeWorld(
     node: LayoutNode,
     activeCount: Int,
-    textMeasurer: TextMeasurer,
     isDark: Boolean
 ) {
     val left = node.bounds.left
