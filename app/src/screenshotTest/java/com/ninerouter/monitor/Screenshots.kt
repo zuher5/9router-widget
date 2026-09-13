@@ -145,7 +145,7 @@ class Screenshots {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.Center
             ) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),

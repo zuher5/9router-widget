@@ -83,6 +83,13 @@ dependencies {
     testImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.tooling)
 
+    // Screenshot test source set dependencies
+    add("screenshotTestImplementation", libs.screenshot.validation.api)
+    add("screenshotTestImplementation", libs.androidx.ui.tooling)
+    add("screenshotTestImplementation", libs.androidx.compose.bom)
+    add("screenshotTestImplementation", libs.androidx.ui)
+    add("screenshotTestImplementation", libs.androidx.material3)
+
     // Pin kotlin-stdlib ke 2.0.21 agar tidak tertimpa oleh transitive dependency screenshot plugin (2.2.10)
     constraints {
         implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21") {

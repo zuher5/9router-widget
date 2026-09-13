@@ -37,19 +37,18 @@ jobs:
         run: ./gradlew test --stacktrace
 
       - name: Record Screenshots
-        # Jalankan update/record preview screenshot tests (toleran bila preview kosong)
-        run: ./gradlew :app:updateDebugScreenshotTest || ./gradlew :app:recordDebugScreenshotTest || true
-        continue-on-error: true
+        run: ./gradlew :app:updateDebugScreenshotTest --stacktrace || true
 
       - name: Upload Screenshot Test Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: compose-screenshots
           path: |
-            app/src/screenshotTestDebug/reference/
-            app/src/screenshotTest/debug/reference/
-            app/build/reports/screenshotTest/
-            app/build/outputs/screenshotTest/
+            app/src/screenshotTestDebug/reference/**
+            app/src/screenshotTest/debug/reference/**
+            app/build/reports/screenshotTest/**
+            app/build/outputs/screenshotTest/**
+            app/build/intermediates/screenshot_test/**
           if-no-files-found: warn
           retention-days: 14
 
