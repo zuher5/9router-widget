@@ -185,7 +185,8 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                                     maxLines = 1
                                 )
                             } else if (lastReq != null) {
-                                val latencyStr = if (lastReq.latencyMs > 0) " • ${lastReq.latencyMs}ms" else ""
+                                val latency = lastReq.latencyMs ?: 0L
+                                val latencyStr = if (latency > 0L) " • ${latency}ms" else ""
                                 Text(
                                     text = "Last: ${lastReq.model}$latencyStr",
                                     style = TextStyle(
