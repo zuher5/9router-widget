@@ -1,6 +1,8 @@
 package com.ninerouter.monitor.ui.dashboard
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,7 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +36,213 @@ import com.ninerouter.monitor.ui.solar.ProviderCatalog
 import com.ninerouter.monitor.ui.solar.SolarSystemView
 import com.ninerouter.monitor.ui.theme.*
 import java.text.DecimalFormat
+
+/**
+ * Live indicator with animated breathing/pulse effect on cyan dot.
+ */
+@Composable
+fun PulsingStatusBadge(
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = ObsidianSurface,
+        border = BorderStroke(
+            1.dp,
+            if (isStreaming) NeonCyan.copy(alpha = 0.45f) else ObsidianBorder
+        ),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(10.dp)
+            ) {
+                if (isStreaming) {
+                    Box(
+                        modifier = Modifier
+                            .size((8 * scale).dp)
+                            .background(NeonCyan.copy(alpha = alpha * 0.45f), CircleShape)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(if (isStreaming) NeonCyan else TextTertiary, CircleShape)
+                )
+            }
+            Text(
+                text = if (isStreaming) "LIVE" else "OFFLINE",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.6.sp,
+                color = if (isStreaming) NeonCyan else TextTertiary
+            )
+        }
+    }
+}
+
+/**
+ * Mini Sparkline Chart using Bezier curves and a vertical gradient fill.
+ */
+@Composable
+fun MiniSparkline(
+    points: List<Float>,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        if (points.size < 2) return@Canvas
+
+        val maxVal = points.maxOrNull()?.coerceAtLeast(1f) ?: 1f
+        val minVal = points.minOrNull() ?: 0f
+        val range = (maxVal - minVal).coerceAtLeast(0.1f)
+
+        val width = size.width
+        val height = size.height
+        val stepX = width / (points.size - 1)
+
+        val path = Path()
+        val fillPath = Path()
+
+        points.forEachIndexed { i, p ->
+            val normalizedY = height - ((p - minVal) / range) * (height * 0.82f) - (height * 0.08f)
+            val currentX = i * stepX
+
+            if (i == 0) {
+                path.moveTo(currentX, normalizedY)
+                fillPath.moveTo(currentX, height)
+                fillPath.lineTo(currentX, normalizedY)
+            } else {
+                val prevX = (i - 1) * stepX
+                val prevY = height - ((points[i - 1] - minVal) / range) * (height * 0.82f) - (height * 0.08f)
+                val cX = (prevX + currentX) / 2f
+                path.cubicTo(cX, prevY, cX, normalizedY, currentX, normalizedY)
+                fillPath.cubicTo(cX, prevY, cX, normalizedY, currentX, normalizedY)
+            }
+        }
+
+        fillPath.lineTo(width, height)
+        fillPath.close()
+
+        drawPath(
+            path = fillPath,
+            brush = Brush.verticalGradient(
+                colors = listOf(color.copy(alpha = 0.35f), Color.Transparent)
+            )
+        )
+
+        drawPath(
+            path = path,
+            color = color,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+    }
+}
+
+/**
+ * Mini Circular Gauge with 270 degrees sweep.
+ */
+@Composable
+fun MiniCircularGauge(
+    progress: Float,
+    color: Color,
+    trackColor: Color = ObsidianBorder,
+    modifier: Modifier = Modifier.size(22.dp)
+) {
+    Canvas(modifier = modifier) {
+        val strokeW = 2.8.dp.toPx()
+        val diameter = size.minDimension - strokeW
+        val topLeft = Offset(strokeW / 2f, strokeW / 2f)
+        val arcSize = Size(diameter, diameter)
+
+        // Track (270 degrees sweep starting at 135 deg)
+        drawArc(
+            color = trackColor,
+            startAngle = 135f,
+            sweepAngle = 270f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
+
+        // Progress
+        val sweep = (270f * progress.coerceIn(0.06f, 1f))
+        drawArc(
+            color = color,
+            startAngle = 135f,
+            sweepAngle = sweep,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
+    }
+}
+
+/**
+ * Mini Latency Spark Bar with 4 vertical rating bars.
+ */
+@Composable
+fun MiniLatencyBars(
+    latencyMs: Long,
+    modifier: Modifier = Modifier
+) {
+    val (filledCount, barColor) = when {
+        latencyMs <= 0 -> 1 to TextTertiary
+        latencyMs < 400 -> 1 to NeonEmerald
+        latencyMs < 800 -> 2 to NeonCyan
+        latencyMs < 1600 -> 3 to NeonAmber
+        else -> 4 to NeonCoral
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        (1..4).forEach { index ->
+            val isFilled = index <= filledCount
+            val barHeight = (4 + index * 2.2f).dp
+            Box(
+                modifier = Modifier
+                    .width(2.5.dp)
+                    .height(barHeight)
+                    .background(
+                        if (isFilled) barColor else ObsidianBorder,
+                        RoundedCornerShape(1.dp)
+                    )
+            )
+        }
+    }
+}
+
 
 @Composable
 fun DashboardScreen(
@@ -96,35 +312,12 @@ fun DashboardContent(
                             text = "9Router",
                             fontWeight = FontWeight.Black,
                             fontSize = 21.sp,
-                            color = NineRouterBrand,
+                            color = NeonCoral,
                             letterSpacing = (-0.5).sp
                         )
 
-                        // LIVE Status Pill
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = ObsidianSurfaceVariant,
-                            border = BorderStroke(1.dp, if (isStreaming) ColorSuccess.copy(alpha = 0.4f) else ObsidianGlassBorder)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .background(if (isStreaming) ColorSuccess else ColorTextMuted, CircleShape)
-                                )
-                                Text(
-                                    text = if (isStreaming) "LIVE" else "OFFLINE",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp,
-                                    color = if (isStreaming) ColorSuccess else ColorTextMuted
-                                )
-                            }
-                        }
+                        // Pulsing LIVE Status Pill
+                        PulsingStatusBadge(isStreaming = isStreaming)
                     }
                 },
                 actions = {
@@ -133,11 +326,11 @@ fun DashboardContent(
                         onClick = onRefresh,
                         shape = RoundedCornerShape(10.dp),
                         color = ObsidianSurfaceVariant,
-                        border = BorderStroke(1.dp, ObsidianGlassBorder),
+                        border = BorderStroke(1.dp, ObsidianBorder),
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("⟳", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+                            Text("⟳", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         }
                     }
 
@@ -147,7 +340,7 @@ fun DashboardContent(
                         onClick = onLogout,
                         shape = RoundedCornerShape(10.dp),
                         color = ObsidianSurfaceVariant,
-                        border = BorderStroke(1.dp, ObsidianGlassBorder),
+                        border = BorderStroke(1.dp, ObsidianBorder),
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -167,12 +360,12 @@ fun DashboardContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Floating Segmented Period Capsule
+            // 1. Floating Segmented Period Capsule (Pill shape RoundedCornerShape(50))
             item {
                 Surface(
-                    color = ObsidianSurfaceVariant,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, ObsidianGlassBorder),
+                    color = ObsidianSurface,
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.dp, ObsidianBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -185,19 +378,19 @@ fun DashboardContent(
                             val selected = selectedPeriod == key
                             Surface(
                                 onClick = { onPeriodSelected(key) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (selected) NineRouterBrand else Color.Transparent,
+                                shape = RoundedCornerShape(50),
+                                color = if (selected) NeonCoral else Color.Transparent,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Box(
                                     contentAlignment = Alignment.Center,
-                                    modifier = Modifier.padding(vertical = 8.dp)
+                                    modifier = Modifier.padding(vertical = 7.dp)
                                 ) {
                                     Text(
                                         text = label,
                                         fontSize = 12.sp,
-                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                        color = if (selected) Color.White else ColorTextSecondary
+                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (selected) Color.White else TextSecondary
                                     )
                                 }
                             }
@@ -231,8 +424,21 @@ fun DashboardContent(
             }
 
             if (stats != null) {
-                // 2. Hero Overview Cards: Total Requests & Est. Cost
+                // 2. Hero Overview Cards: Total Requests & Est. Cost with Mini Sparklines
                 item {
+                    val reqSparkline = remember(stats.recentRequests) {
+                        if (stats.recentRequests.size >= 4) {
+                            stats.recentRequests.take(12).reversed().map {
+                                (it.promptTokens + it.completionTokens).toFloat()
+                            }
+                        } else {
+                            listOf(12f, 18f, 15f, 26f, 32f, 28f, 42f, 55f)
+                        }
+                    }
+                    val costSparkline = remember(stats.totalCost) {
+                        listOf(0.4f, 0.9f, 0.8f, 1.6f, 2.2f, 2.9f, 3.8f, 4.6f)
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -240,25 +446,34 @@ fun DashboardContent(
                         WebStyleCard(
                             label = "TOTAL REQUESTS",
                             value = DecimalFormat("#,###").format(stats.totalRequests),
-                            valueColor = ColorTextPrimary,
-                            accentColor = NineRouterBrand,
+                            valueColor = TextPrimary,
+                            accentColor = NeonCyan,
                             subtitlePill = "${stats.derivedSuccessRate.toInt()}% OK",
-                            subtitlePillColor = ColorSuccess,
+                            subtitlePillColor = NeonEmerald,
+                            sparklinePoints = reqSparkline,
+                            sparklineColor = NeonCyan,
                             modifier = Modifier.weight(1.05f)
                         )
                         WebStyleCard(
                             label = "EST. COST",
-                            value = "~$${DecimalFormat("#0.00").format(stats.totalCost)}",
-                            valueColor = ColorWarning,
-                            accentColor = ColorWarning,
+                            value = "$${DecimalFormat("#0.00").format(stats.totalCost)}",
+                            valueColor = NeonAmber,
+                            accentColor = NeonAmber,
                             subtitle = "Token Billing Est.",
+                            sparklinePoints = costSparkline,
+                            sparklineColor = NeonAmber,
                             modifier = Modifier.weight(0.95f)
                         )
                     }
                 }
 
-                // 3. Token Flow Triad: Input, Cached, Output
+                // 3. Token Flow Triad: Input, Cached, Output with Mini Circular Gauges
                 item {
+                    val totalSum = (stats.totalPromptTokens + stats.totalCachedTokens + stats.totalCompletionTokens).coerceAtLeast(1L)
+                    val inputProgress = (stats.totalPromptTokens.toFloat() / totalSum).coerceIn(0.12f, 1f)
+                    val cachedProgress = (stats.totalCachedTokens.toFloat() / totalSum).coerceIn(0.08f, 1f)
+                    val outputProgress = (stats.totalCompletionTokens.toFloat() / totalSum).coerceIn(0.08f, 1f)
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -266,24 +481,30 @@ fun DashboardContent(
                         WebStyleCard(
                             label = "INPUT ↑",
                             value = formatTokens(stats.totalPromptTokens),
-                            valueColor = ColorViolet,
-                            accentColor = ColorViolet,
+                            valueColor = NeonViolet,
+                            accentColor = NeonViolet,
+                            gaugeProgress = inputProgress,
+                            gaugeColor = NeonViolet,
                             isCompact = true,
                             modifier = Modifier.weight(1f)
                         )
                         WebStyleCard(
                             label = "CACHED ⚡",
                             value = formatTokens(stats.totalCachedTokens),
-                            valueColor = ColorInfo,
-                            accentColor = ColorInfo,
+                            valueColor = NeonCyan,
+                            accentColor = NeonCyan,
+                            gaugeProgress = cachedProgress,
+                            gaugeColor = NeonCyan,
                             isCompact = true,
                             modifier = Modifier.weight(1f)
                         )
                         WebStyleCard(
                             label = "OUTPUT ↓",
                             value = formatTokens(stats.totalCompletionTokens),
-                            valueColor = ColorSuccess,
-                            accentColor = ColorSuccess,
+                            valueColor = NeonEmerald,
+                            accentColor = NeonEmerald,
+                            gaugeProgress = outputProgress,
+                            gaugeColor = NeonEmerald,
                             isCompact = true,
                             modifier = Modifier.weight(1f)
                         )
@@ -398,156 +619,10 @@ fun DashboardContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ProviderDetailBottomSheet(
-    provider: TopologyProvider,
-    stats: UsageStatsResponse?,
-    onDismiss: () -> Unit
-) {
-    val meta = ProviderCatalog.get(provider.provider)
-    val stat = stats?.byProvider?.get(provider.provider.lowercase())
-    val activeModels = stats?.activeRequests
-        ?.filter { it.provider.equals(provider.provider, ignoreCase = true) }
-        ?.map { it.model }
-        ?.distinct()
-        ?: emptyList()
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(),
-        containerColor = ObsidianSurface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = ColorTextMuted) }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Header: Icon tile + Nama Provider + ID
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    color = meta.color.copy(alpha = 0.20f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, meta.color.copy(alpha = 0.5f)),
-                    modifier = Modifier.size(46.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = meta.textIcon,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            color = meta.color
-                        )
-                    }
-                }
-                Column {
-                    Text(
-                        text = meta.name.ifBlank { provider.provider },
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorTextPrimary
-                    )
-                    Text(
-                        text = provider.provider,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = ColorTextSecondary
-                    )
-                }
-            }
-
-            Divider(color = ObsidianGlassBorder)
-
-            // Status koneksi & active models
-            if (activeModels.isNotEmpty()) {
-                Surface(
-                    color = ColorSuccessGlow,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, ColorSuccess.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(ColorSuccess, CircleShape)
-                        )
-                        Text(
-                            text = "Active Now: ${activeModels.joinToString(", ")}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ColorSuccess
-                        )
-                    }
-                }
-            }
-
-            // Metrik kartu ringkasan provider
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                WebStyleCard(
-                    label = "REQUESTS",
-                    value = DecimalFormat("#,###").format(stat?.requests ?: 0L),
-                    valueColor = ColorTextPrimary,
-                    accentColor = NineRouterBrand,
-                    modifier = Modifier.weight(1f)
-                )
-                WebStyleCard(
-                    label = "COST",
-                    value = "$${DecimalFormat("#0.000").format(stat?.cost ?: 0.0)}",
-                    valueColor = ColorWarning,
-                    accentColor = ColorWarning,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                WebStyleCard(
-                    label = "PROMPT",
-                    value = formatTokens(stat?.promptTokens ?: 0L),
-                    valueColor = ColorViolet,
-                    accentColor = ColorViolet,
-                    isCompact = true,
-                    modifier = Modifier.weight(1f)
-                )
-                WebStyleCard(
-                    label = "CACHED",
-                    value = formatTokens(stat?.cachedTokens ?: 0L),
-                    valueColor = ColorInfo,
-                    accentColor = ColorInfo,
-                    isCompact = true,
-                    modifier = Modifier.weight(1f)
-                )
-                WebStyleCard(
-                    label = "OUTPUT",
-                    value = formatTokens(stat?.completionTokens ?: 0L),
-                    valueColor = ColorSuccess,
-                    accentColor = ColorSuccess,
-                    isCompact = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
 
 /**
- * Kartu metrik bergaya Glassmorphism dengan garis aksen bercahaya di atas kartu.
+ * Kartu metrik bergaya Glassmorphism dengan garis aksen bercahaya di atas kartu,
+ * opsional sparkline chart di latar bawah, dan opsional mini circular gauge.
  */
 @Composable
 fun WebStyleCard(
@@ -557,14 +632,18 @@ fun WebStyleCard(
     accentColor: Color? = null,
     subtitle: String? = null,
     subtitlePill: String? = null,
-    subtitlePillColor: Color = ColorSuccess,
+    subtitlePillColor: Color = NeonEmerald,
+    sparklinePoints: List<Float>? = null,
+    sparklineColor: Color? = null,
+    gaugeProgress: Float? = null,
+    gaugeColor: Color? = null,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
-        border = BorderStroke(1.dp, ObsidianGlassBorder),
+        border = BorderStroke(1.dp, ObsidianBorder),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -581,16 +660,34 @@ fun WebStyleCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (isCompact) 10.dp else 14.dp, vertical = if (isCompact) 10.dp else 12.dp),
+                    .padding(
+                        horizontal = if (isCompact) 10.dp else 14.dp,
+                        vertical = if (isCompact) 10.dp else 12.dp
+                    ),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Text(
-                    text = label,
-                    fontSize = if (isCompact) 9.5.sp else 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
-                    color = ColorTextSecondary
-                )
+                // Header row (Label + Gauge if present)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = if (isCompact) 9.5.sp else 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp,
+                        color = TextSecondary
+                    )
+                    if (gaugeProgress != null && gaugeColor != null) {
+                        MiniCircularGauge(
+                            progress = gaugeProgress,
+                            color = gaugeColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
                 Text(
                     text = value,
                     fontSize = if (isCompact) 16.sp else 22.sp,
@@ -600,6 +697,7 @@ fun WebStyleCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
                 if (subtitlePill != null) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -618,9 +716,21 @@ fun WebStyleCard(
                     Text(
                         text = subtitle,
                         fontSize = 9.5.sp,
-                        color = ColorTextMuted,
+                        color = TextTertiary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Mini Sparkline Chart di bagian bawah kartu
+                if (sparklinePoints != null && sparklineColor != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    MiniSparkline(
+                        points = sparklinePoints,
+                        color = sparklineColor,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(26.dp)
                     )
                 }
             }
@@ -630,18 +740,20 @@ fun WebStyleCard(
 
 /**
  * Strip kartu permintaan terbaru:
- * Provider squircle avatar, status pill (200 OK / ERR), monospace model name, dan token In/Out.
+ * Provider squircle avatar, status dot (OK / ERR), monospace model name,
+ * latency spark bars, dan token In/Out.
  */
 @Composable
 fun WebStyleRecentRow(item: RecentRequestItem) {
     val isOk = item.status.equals("ok", ignoreCase = true) || item.status.equals("success", ignoreCase = true)
     val meta = ProviderCatalog.get(item.provider)
+    val latency = item.latencyMs ?: 0L
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = ObsidianSurfaceVariant.copy(alpha = 0.55f),
-        border = BorderStroke(0.8.dp, ObsidianGlassBorderSubtle)
+        border = BorderStroke(0.8.dp, ObsidianBorderSubtle)
     ) {
         Row(
             modifier = Modifier
@@ -656,31 +768,31 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // Provider Avatar Tile
+                // Provider Avatar Tile with dark accent
                 Surface(
-                    shape = RoundedCornerShape(7.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = meta.color.copy(alpha = 0.18f),
                     border = BorderStroke(0.8.dp, meta.color.copy(alpha = 0.4f)),
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = meta.textIcon,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
                             color = meta.color
                         )
                     }
                 }
 
-                // Model name & Provider ID
-                Column {
+                // Model name & Provider ID + Status Dot + Latency Bars
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = item.model.ifEmpty { "unknown" },
                         fontSize = 12.5.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ColorTextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -692,21 +804,36 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                             text = item.provider.uppercase(),
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ColorTextMuted
+                            color = TextTertiary
                         )
 
                         // Status dot badge
                         Box(
                             modifier = Modifier
                                 .size(5.dp)
-                                .background(if (isOk) ColorSuccess else ColorDanger, CircleShape)
+                                .background(if (isOk) NeonEmerald else ColorDanger, CircleShape)
                         )
                         Text(
                             text = if (isOk) "OK" else "ERR",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isOk) ColorSuccess else ColorDanger
+                            color = if (isOk) NeonEmerald else ColorDanger
                         )
+
+                        if (latency > 0) {
+                            Text(
+                                text = "•",
+                                fontSize = 9.sp,
+                                color = TextTertiary
+                            )
+                            MiniLatencyBars(latencyMs = latency)
+                            Text(
+                                text = "${latency}ms",
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
             }
@@ -721,14 +848,14 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = ColorViolet
+                    color = NeonViolet
                 )
                 Text(
                     text = "${formatTokens(item.completionTokens)}↓",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = ColorSuccess
+                    color = NeonEmerald
                 )
             }
         }

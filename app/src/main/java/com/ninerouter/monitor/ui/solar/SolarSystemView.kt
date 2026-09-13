@@ -186,8 +186,11 @@ fun SolarSystemView(
                                 val worldX = (tapOffset.x - totalOffset.x) / totalScale
                                 val worldY = (tapOffset.y - totalOffset.y) / totalScale
 
+                                val hitPadding = 8f
                                 val tappedNode = layout.providerNodes.firstOrNull { node ->
-                                    node.bounds.contains(Offset(worldX, worldY))
+                                    val b = node.bounds
+                                    worldX >= b.left - hitPadding && worldX <= b.right + hitPadding &&
+                                    worldY >= b.top - hitPadding && worldY <= b.bottom + hitPadding
                                 }
                                 if (tappedNode?.provider != null) {
                                     onProviderTap(tappedNode.provider)
@@ -205,44 +208,46 @@ fun SolarSystemView(
                     translate(totalOffset.x, totalOffset.y)
                     scale(totalScale, totalScale, pivot = Offset.Zero)
                 }) {
-                    // 0. Gambar RADAR ORBIT & GRID BACKGROUND di world space
+                    // 0. Gambar RADAR ORBIT & GRID BACKGROUND di world space (4 concentric dashed rings)
                     if (layout.rx > 0f && layout.ry > 0f) {
-                        val orbitColor1 = Color(0x18FFFFFF)
-                        val orbitColor2 = Color(0x0EFFFFFF)
-                        val crosshairColor = Color(0x0AFFFFFF)
+                        val orbitDash = PathEffect.dashPathEffect(floatArrayOf(6f, 10f), 0f)
+                        val orbitColor = ObsidianBorder
+                        val crosshairColor = ObsidianBorder.copy(alpha = 0.7f)
 
-                        // Outer orbit ring
-                        drawOval(
-                            color = orbitColor1,
-                            topLeft = Offset(-layout.rx, -layout.ry),
-                            size = Size(layout.rx * 2f, layout.ry * 2f),
-                            style = Stroke(width = 1.2f)
-                        )
-                        // Middle dashed orbit ring
-                        drawOval(
-                            color = orbitColor2,
-                            topLeft = Offset(-layout.rx * 0.65f, -layout.ry * 0.65f),
-                            size = Size(layout.rx * 1.3f, layout.ry * 1.3f),
-                            style = Stroke(width = 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
-                        )
-                        // Inner orbit ring
-                        drawOval(
-                            color = orbitColor2,
-                            topLeft = Offset(-layout.rx * 0.35f, -layout.ry * 0.35f),
-                            size = Size(layout.rx * 0.7f, layout.ry * 0.7f),
-                            style = Stroke(width = 0.8f)
-                        )
-                        // Crosshairs
+                        // 4 Concentric Dashed Orbit Rings
+                        val ringFractions = listOf(1.0f, 0.75f, 0.50f, 0.28f)
+                        ringFractions.forEach { frac ->
+                            drawOval(
+                                color = orbitColor,
+                                topLeft = Offset(-layout.rx * frac, -layout.ry * frac),
+                                size = Size(layout.rx * 2f * frac, layout.ry * 2f * frac),
+                                style = Stroke(width = 1.2f, pathEffect = orbitDash)
+                            )
+                        }
+
+                        // Tactical Sci-Fi Crosshairs
                         drawLine(
                             color = crosshairColor,
-                            start = Offset(-layout.rx * 1.25f, 0f),
-                            end = Offset(layout.rx * 1.25f, 0f),
+                            start = Offset(-layout.rx * 1.15f, 0f),
+                            end = Offset(-layout.rx * 0.15f, 0f),
                             strokeWidth = 1f
                         )
                         drawLine(
                             color = crosshairColor,
-                            start = Offset(0f, -layout.ry * 1.25f),
-                            end = Offset(0f, layout.ry * 1.25f),
+                            start = Offset(layout.rx * 0.15f, 0f),
+                            end = Offset(layout.rx * 1.15f, 0f),
+                            strokeWidth = 1f
+                        )
+                        drawLine(
+                            color = crosshairColor,
+                            start = Offset(0f, -layout.ry * 1.15f),
+                            end = Offset(0f, -layout.ry * 0.15f),
+                            strokeWidth = 1f
+                        )
+                        drawLine(
+                            color = crosshairColor,
+                            start = Offset(0f, layout.ry * 0.15f),
+                            end = Offset(0f, layout.ry * 1.15f),
                             strokeWidth = 1f
                         )
                     }
@@ -383,40 +388,40 @@ private fun DrawScope.drawTopologyEdgeWorld(
         EdgeStatus.IDLE -> {
             drawPath(
                 path = path,
-                color = Color(0xFF6B7280).copy(alpha = 0.50f),
-                style = Stroke(width = 1.4f)
+                color = ObsidianBorder.copy(alpha = 0.85f),
+                style = Stroke(width = 1.5f)
             )
         }
         EdgeStatus.LAST -> {
             drawPath(
                 path = path,
-                color = Color(0xFFF59E0B).copy(alpha = 0.85f),
-                style = Stroke(width = 2.2f)
+                color = NeonAmber.copy(alpha = 0.90f),
+                style = Stroke(width = 2.4f)
             )
         }
         EdgeStatus.ERROR -> {
             drawPath(
                 path = path,
-                color = Color(0xFFEF4444).copy(alpha = 0.95f),
+                color = NeonCoral.copy(alpha = 0.95f),
                 style = Stroke(width = 2.8f)
             )
         }
         EdgeStatus.ACTIVE -> {
-            // KAME BEAM: multi-layer stroke + bola energi bergerak
+            // Glowing neon beam: multi-layer stroke + energy orbs
             drawPath(
                 path = path,
-                color = Color(0xFF22D3EE).copy(alpha = 0.35f),
-                style = Stroke(width = 10f, cap = StrokeCap.Round)
+                color = NeonCyan.copy(alpha = 0.35f),
+                style = Stroke(width = 9f, cap = StrokeCap.Round)
             )
             drawPath(
                 path = path,
-                color = Color(0xFF4ADE80).copy(alpha = 0.85f),
-                style = Stroke(width = 5f, cap = StrokeCap.Round)
+                color = NeonEmerald.copy(alpha = 0.85f),
+                style = Stroke(width = 4.5f, cap = StrokeCap.Round)
             )
             drawPath(
                 path = path,
-                color = Color(0xFFF8FAFC),
-                style = Stroke(width = 2.2f, cap = StrokeCap.Round)
+                color = Color.White,
+                style = Stroke(width = 2f, cap = StrokeCap.Round)
             )
 
             // Energy orbs berjalan di sepanjang kurva

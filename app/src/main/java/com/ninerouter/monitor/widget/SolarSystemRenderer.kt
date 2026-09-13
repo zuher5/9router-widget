@@ -22,13 +22,14 @@ object SolarSystemRenderer {
         drawSummary: Boolean = false,
         densityDpi: Int = 0
     ): Bitmap {
-        val safeW = widthPx.coerceIn(200, 600)
-        val safeH = heightPx.coerceIn(120, 360)
+        val safeW = widthPx.coerceIn(240, 800)
+        val safeH = heightPx.coerceIn(120, 450)
         val bitmap = Bitmap.createBitmap(safeW, safeH, Bitmap.Config.ARGB_8888)
         if (densityDpi > 0) {
             bitmap.density = densityDpi
         }
         val canvas = Canvas(bitmap)
+        canvas.drawFilter = PaintFlagsDrawFilter(0, Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
         val effectiveProviders = if (providers.isNotEmpty()) {
             providers
@@ -63,10 +64,10 @@ object SolarSystemRenderer {
             paddingFraction = 0.08f
         )
 
-        val borderColor = if (isDark) Color.argb(32, 255, 255, 255) else Color.rgb(0xDC, 0xDC, 0xDC)
+        val borderColor = if (isDark) Color.rgb(0x1E, 0x29, 0x3B) else Color.rgb(0xDC, 0xDC, 0xDC)
         val textColor = if (isDark) Color.rgb(0xF8, 0xFA, 0xFC) else Color.rgb(0x0A, 0x0A, 0x0A)
         val textMutedColor = if (isDark) Color.rgb(0x94, 0xA3, 0xB8) else Color.rgb(0x6B, 0x72, 0x80)
-        val nodeBgColor = if (isDark) Color.rgb(0x13, 0x17, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
+        val nodeBgColor = if (isDark) Color.rgb(0x12, 0x16, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
 
         canvas.save()
         canvas.translate(fitOffset.x, fitOffset.y)
@@ -74,22 +75,31 @@ object SolarSystemRenderer {
 
         // 0. Radar Scope Background
         if (layout.rx > 0f && layout.ry > 0f) {
-            val orbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            val radarDashedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
-                color = Color.argb(22, 255, 255, 255)
-                strokeWidth = 1.2f
-            }
-            val orbitRect = RectF(-layout.rx, -layout.ry, layout.rx, layout.ry)
-            canvas.drawOval(orbitRect, orbitPaint)
-
-            val orbitDashedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                color = Color.argb(14, 255, 255, 255)
+                color = Color.argb(26, 0x22, 0xD3, 0xEE) // Soft NeonCyan
                 strokeWidth = 1f
-                pathEffect = DashPathEffect(floatArrayOf(6f, 6f), 0f)
+                pathEffect = DashPathEffect(floatArrayOf(5f, 8f), 0f)
             }
-            val orbitMidRect = RectF(-layout.rx * 0.65f, -layout.ry * 0.65f, layout.rx * 0.65f, layout.ry * 0.65f)
-            canvas.drawOval(orbitMidRect, orbitDashedPaint)
+            val crosshairPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                color = Color.argb(18, 0x94, 0xA3, 0xB8)
+                strokeWidth = 0.8f
+                pathEffect = DashPathEffect(floatArrayOf(4f, 8f), 0f)
+            }
+
+            // Crosshairs
+            val maxR = layout.rx * 1.15f
+            canvas.drawLine(-maxR, 0f, maxR, 0f, crosshairPaint)
+            val maxRy = layout.ry * 1.15f
+            canvas.drawLine(0f, -maxRy, 0f, maxRy, crosshairPaint)
+
+            // Concentric radar rings
+            val fractions = floatArrayOf(0.45f, 0.72f, 1.0f)
+            fractions.forEach { f ->
+                val orbitRect = RectF(-layout.rx * f, -layout.ry * f, layout.rx * f, layout.ry * f)
+                canvas.drawOval(orbitRect, radarDashedPaint)
+            }
         }
 
         // 1. Gambar EDGES di world space
