@@ -7,6 +7,8 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -23,7 +25,7 @@ import com.ninerouter.monitor.R
 import com.ninerouter.monitor.data.auth.SessionManager
 import com.ninerouter.monitor.data.network.NineRouterApiClient
 import com.ninerouter.monitor.data.repository.UsageRepository
-import java.text.DecimalFormat
+import kotlin.math.roundToInt
 
 class NineRouterSolarWidget : GlanceAppWidget() {
 
@@ -36,16 +38,27 @@ class NineRouterSolarWidget : GlanceAppWidget() {
         val providers = repository.getCachedProviders()
 
         provideContent {
-            val bgDark = ColorProvider(android.graphics.Color.rgb(0x1A, 0x1A, 0x1A))
-            val textLight = ColorProvider(android.graphics.Color.rgb(0xED, 0xED, 0xED))
+            val bgDark = ColorProvider(android.graphics.Color.rgb(0x14, 0x14, 0x14))
             val textMuted = ColorProvider(android.graphics.Color.rgb(0x9C, 0xA3, 0xAF))
             val brandColor = ColorProvider(android.graphics.Color.rgb(0xE5, 0x6A, 0x4A))
+
+            val glanceContext = LocalContext.current
+            val glanceSize = LocalSize.current
+            val metrics = glanceContext.resources.displayMetrics
+            val density = metrics.density
+
+            // Konversi dp ke px yang dibatasi aman agar tidak melampaui batas memori RemoteViews
+            val targetWPx = if (glanceSize.width.value > 0f) (glanceSize.width.value * density).roundToInt() else 420
+            val targetHPx = if (glanceSize.height.value > 0f) (glanceSize.height.value * density).roundToInt() else 200
+
+            val safeWPx = targetWPx.coerceIn(240, 480)
+            val safeHPx = targetHPx.coerceIn(120, 240)
 
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(bgDark)
-                    .padding(8.dp)
+                    .padding(4.dp)
                     .clickable(actionStartActivity<MainActivity>()),
                 contentAlignment = Alignment.Center
             ) {
@@ -53,71 +66,21 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                     val bitmap = SolarSystemRenderer.render(
                         stats = stats,
                         providers = providers,
-                        widthPx = 600,
-                        heightPx = 280,
-                        isDark = true
+                        widthPx = safeWPx,
+                        heightPx = safeHPx,
+                        isDark = true,
+                        drawSummary = true,
+                        densityDpi = metrics.densityDpi
                     )
 
-                    Column(
-                        modifier = GlanceModifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Grafik Solar System (Image dari Bitmap hasil render Canvas)
-                        Image(
-                            provider = ImageProvider(bitmap),
-                            contentDescription = "Solar System Usage",
-                            modifier = GlanceModifier
-                                .fillMaxWidth()
-                                .defaultWeight()
-                        )
-
-                        Spacer(modifier = GlanceModifier.height(4.dp))
-
-                        // 1 Baris Ringkasan: Total Requests • Biaya
-                        Row(
-                            modifier = GlanceModifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "9Router",
-                                style = TextStyle(
-                                    color = brandColor,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Spacer(modifier = GlanceModifier.width(6.dp))
-                            Text(
-                                text = "•",
-                                style = TextStyle(color = textMuted, fontSize = 11.sp)
-                            )
-                            Spacer(modifier = GlanceModifier.width(6.dp))
-                            Text(
-                                text = "${DecimalFormat("#,###").format(stats.totalRequests)} reqs",
-                                style = TextStyle(
-                                    color = textLight,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                            Spacer(modifier = GlanceModifier.width(6.dp))
-                            Text(
-                                text = "•",
-                                style = TextStyle(color = textMuted, fontSize = 11.sp)
-                            )
-                            Spacer(modifier = GlanceModifier.width(6.dp))
-                            Text(
-                                text = "$${DecimalFormat("#0.000").format(stats.totalCost)}",
-                                style = TextStyle(
-                                    color = textLight,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
+                    // Image tunggal full-size menggantikan nested Column + defaultWeight
+                    // untuk mencegah bug "can't load image" di launcher RemoteViews
+                    Image(
+                        provider = ImageProvider(bitmap),
+                        contentDescription = "9Router Topology",
+                        contentScale = ContentScale.FillBounds,
+                        modifier = GlanceModifier.fillMaxSize()
+                    )
                 } else {
                     Column(
                         modifier = GlanceModifier.fillMaxSize(),

@@ -306,8 +306,8 @@ private fun DrawScope.drawTopologyEdgeWorld(
         EdgeStatus.IDLE -> {
             drawPath(
                 path = path,
-                color = borderColor.copy(alpha = 0.35f),
-                style = Stroke(width = 1.2f)
+                color = Color(0xFF6B7280).copy(alpha = 0.50f),
+                style = Stroke(width = 1.4f)
             )
         }
         EdgeStatus.LAST -> {
@@ -563,7 +563,7 @@ private fun DrawScope.drawProviderNodeWorld(
             isFakeBoldText = isActive
             textAlign = AndroidPaint.Align.LEFT
         }
-        val displayName = (node.provider?.displayLabel ?: node.meta.name)
+        val displayName = node.meta.name
         val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(11)
         val nameY = top + (height / 2f) + (namePaint.textSize / 3f)
         native.drawText(cleanDisplay, iconTileLeft + iconTileSize + 6f, nameY, namePaint)

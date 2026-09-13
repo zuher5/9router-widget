@@ -388,7 +388,7 @@ fun ProviderDetailBottomSheet(
                 }
                 Column {
                     Text(
-                        text = provider.displayLabel.ifBlank { meta.name },
+                        text = meta.name.ifBlank { provider.provider },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

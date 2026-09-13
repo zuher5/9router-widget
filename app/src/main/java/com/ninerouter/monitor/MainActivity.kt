@@ -17,8 +17,10 @@ import com.ninerouter.monitor.data.repository.UsageRepository
 import com.ninerouter.monitor.ui.dashboard.DashboardScreen
 import com.ninerouter.monitor.ui.dashboard.DashboardViewModel
 import com.ninerouter.monitor.ui.setup.SetupScreen
+import androidx.glance.appwidget.updateAll
 import com.ninerouter.monitor.ui.theme.NineRouterBrand
 import com.ninerouter.monitor.ui.theme.NineRouterTheme
+import com.ninerouter.monitor.widget.NineRouterSolarWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,7 +39,7 @@ class MainActivity : ComponentActivity() {
         repository = UsageRepository(applicationContext, apiClient, sessionManager)
 
         setContent {
-            NineRouterTheme {
+            NineRouterTheme(darkTheme = true) {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Loading) }
                 var isLoggingIn by remember { mutableStateOf(false) }
                 var loginError by remember { mutableStateOf<String?>(null) }
@@ -62,6 +64,11 @@ class MainActivity : ComponentActivity() {
                                         sessionManager = sessionManager
                                     )
                                     currentScreen = Screen.Dashboard
+                                    lifecycleScope.launch {
+                                        try {
+                                            NineRouterSolarWidget().updateAll(applicationContext)
+                                        } catch (_: Exception) {}
+                                    }
                                 } else {
                                     val msg = when {
                                         resp.mustChangePassword -> getString(R.string.error_must_change_password)

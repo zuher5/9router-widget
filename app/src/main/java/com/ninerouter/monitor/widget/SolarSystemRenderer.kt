@@ -7,6 +7,7 @@ import com.ninerouter.monitor.ui.solar.EdgeStatus
 import com.ninerouter.monitor.ui.solar.ProviderCatalog
 import com.ninerouter.monitor.ui.solar.TopologyGeometry
 import com.ninerouter.monitor.ui.solar.TopologyLayout
+import java.text.DecimalFormat
 
 object SolarSystemRenderer {
 
@@ -15,11 +16,18 @@ object SolarSystemRenderer {
     fun render(
         stats: UsageStatsResponse,
         providers: List<TopologyProvider> = emptyList(),
-        widthPx: Int = 600,
-        heightPx: Int = 280,
-        isDark: Boolean = true
+        widthPx: Int = 460,
+        heightPx: Int = 220,
+        isDark: Boolean = true,
+        drawSummary: Boolean = false,
+        densityDpi: Int = 0
     ): Bitmap {
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val safeW = widthPx.coerceIn(200, 600)
+        val safeH = heightPx.coerceIn(120, 360)
+        val bitmap = Bitmap.createBitmap(safeW, safeH, Bitmap.Config.ARGB_8888)
+        if (densityDpi > 0) {
+            bitmap.density = densityDpi
+        }
         val canvas = Canvas(bitmap)
 
         val effectiveProviders = if (providers.isNotEmpty()) {
@@ -45,14 +53,19 @@ object SolarSystemRenderer {
             errorProvider = errorProvider
         )
 
+        // Jika drawSummary aktif, sisakan 26px di bawah untuk baris ringkasan
+        val summaryBarHeight = if (drawSummary) (safeH * 0.14f).coerceIn(22f, 32f) else 0f
+        val topologyHeight = safeH - summaryBarHeight
+
         val (fitScale, fitOffset) = layout.computeFitTransform(
-            widthPx.toFloat(),
-            heightPx.toFloat(),
+            safeW.toFloat(),
+            topologyHeight,
             paddingFraction = 0.08f
         )
 
         val borderColor = if (isDark) Color.rgb(0x38, 0x38, 0x38) else Color.rgb(0xDC, 0xDC, 0xDC)
         val textColor = if (isDark) Color.rgb(0xED, 0xED, 0xED) else Color.rgb(0x0A, 0x0A, 0x0A)
+        val textMutedColor = if (isDark) Color.rgb(0x9C, 0xA3, 0xAF) else Color.rgb(0x6B, 0x72, 0x80)
         val nodeBgColor = if (isDark) Color.rgb(0x22, 0x22, 0x22) else Color.rgb(0xFF, 0xFF, 0xFF)
 
         canvas.save()
@@ -73,9 +86,9 @@ object SolarSystemRenderer {
             when (edge.status) {
                 EdgeStatus.IDLE -> {
                     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = Color.argb(80, Color.red(borderColor), Color.green(borderColor), Color.blue(borderColor))
+                        color = Color.argb(130, 0x6B, 0x72, 0x80)
                         style = Paint.Style.STROKE
-                        strokeWidth = 1.4f
+                        strokeWidth = 1.5f
                     }
                     canvas.drawPath(androidPath, paint)
                 }
@@ -267,7 +280,7 @@ object SolarSystemRenderer {
                 isFakeBoldText = isActive
                 textAlign = Paint.Align.LEFT
             }
-            val displayName = (node.provider?.displayLabel ?: meta.name)
+            val displayName = meta.name
             val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(11)
             val nameY = pTop + (pHeight / 2f) + (namePaint.textSize / 3f)
             canvas.drawText(cleanDisplay, tileLeft + tileSize + 6f, nameY, namePaint)
@@ -283,6 +296,51 @@ object SolarSystemRenderer {
 
         canvas.restore()
 
+        // 4. Jika diminta, gambar 1 baris ringkasan elegan di bagian bawah canvas
+        if (drawSummary) {
+            val textY = safeH - (summaryBarHeight * 0.32f)
+            val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = BRAND_COLOR
+                textSize = 10.5f
+                isFakeBoldText = true
+                textAlign = Paint.Align.LEFT
+            }
+            val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = textMutedColor
+                textSize = 10.5f
+                textAlign = Paint.Align.LEFT
+            }
+            val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = textColor
+                textSize = 10.5f
+                isFakeBoldText = false
+                textAlign = Paint.Align.LEFT
+            }
+
+            val part1 = "9Router"
+            val dot = "  •  "
+            val part2 = "${DecimalFormat("#,###").format(stats.totalRequests)} reqs"
+            val part3 = "$${DecimalFormat("#0.000").format(stats.totalCost)}"
+
+            val w1 = brandPaint.measureText(part1)
+            val wDot = dotPaint.measureText(dot)
+            val w2 = lightPaint.measureText(part2)
+            val w3 = lightPaint.measureText(part3)
+            val totalW = w1 + wDot + w2 + wDot + w3
+
+            var curX = (safeW - totalW) / 2f
+            canvas.drawText(part1, curX, textY, brandPaint)
+            curX += w1
+            canvas.drawText(dot, curX, textY, dotPaint)
+            curX += wDot
+            canvas.drawText(part2, curX, textY, lightPaint)
+            curX += w2
+            canvas.drawText(dot, curX, textY, dotPaint)
+            curX += wDot
+            canvas.drawText(part3, curX, textY, lightPaint)
+        }
+
+        bitmap.prepareToDraw()
         return bitmap
     }
 }

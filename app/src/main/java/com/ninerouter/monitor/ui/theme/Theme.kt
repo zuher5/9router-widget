@@ -69,7 +69,7 @@ val NineRouterShapes = Shapes(
 
 @Composable
 fun NineRouterTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
