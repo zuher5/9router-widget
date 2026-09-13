@@ -1,6 +1,8 @@
 package com.ninerouter.monitor.ui.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,16 +14,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ninerouter.monitor.R
 import com.ninerouter.monitor.data.model.RecentRequestItem
 import com.ninerouter.monitor.data.model.UsageStatsResponse
 import com.ninerouter.monitor.ui.solar.SolarSystemView
-import com.ninerouter.monitor.ui.theme.ColorDanger
-import com.ninerouter.monitor.ui.theme.ColorSuccess
-import com.ninerouter.monitor.ui.theme.NineRouterBrand
+import com.ninerouter.monitor.ui.theme.*
 import java.text.DecimalFormat
 
 @Composable
@@ -58,12 +60,13 @@ fun DashboardContent(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Sesuai SegmentedControl di web 9Router: Today, 24h, 7D, 30D, 60D
     val periods = listOf(
-        "today" to R.string.period_today,
-        "24h" to R.string.period_24h,
-        "7d" to R.string.period_7d,
-        "30d" to R.string.period_30d,
-        "60d" to R.string.period_60d
+        "today" to "Today",
+        "24h" to "24h",
+        "7d" to "7D",
+        "30d" to "30D",
+        "60d" to "60D"
     )
 
     Scaffold(
@@ -75,32 +78,42 @@ fun DashboardContent(
                         Text(
                             text = "9Router",
                             fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
                             color = NineRouterBrand
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         if (isStreaming) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(7.dp)
                                     .background(ColorSuccess, CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "LIVE",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = ColorSuccess,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }
                 },
                 actions = {
                     TextButton(onClick = onRefresh) {
-                        Text(stringResource(R.string.refresh), color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = stringResource(R.string.refresh),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                     TextButton(onClick = onLogout) {
-                        Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = stringResource(R.string.logout),
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             )
@@ -111,24 +124,42 @@ fun DashboardContent(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Filter Periode
+            // Segmented Period Selector bergaya 9Router web
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    periods.forEach { (key, labelRes) ->
-                        FilterChip(
-                            selected = selectedPeriod == key,
-                            onClick = { onPeriodSelected(key) },
-                            label = { Text(stringResource(labelRes), fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NineRouterBrand,
-                                selectedLabelColor = Color.White
-                            )
-                        )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        periods.forEach { (key, label) ->
+                            val selected = selectedPeriod == key
+                            Surface(
+                                onClick = { onPeriodSelected(key) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (selected) NineRouterBrand else Color.Transparent,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(vertical = 7.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -137,7 +168,8 @@ fun DashboardContent(
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -151,39 +183,50 @@ fun DashboardContent(
             }
 
             if (stats != null) {
-                // Baris Metrik 1: Total Requests & Total Token
+                // Overview Cards 1: Total Requests & Est. Cost (mengikuti OverviewCards.js)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        MetricCard(
-                            title = stringResource(R.string.total_requests),
+                        WebStyleCard(
+                            label = "TOTAL REQUESTS",
                             value = DecimalFormat("#,###").format(stats.totalRequests),
+                            valueColor = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
-                        MetricCard(
-                            title = stringResource(R.string.total_tokens),
-                            value = formatTokens(stats.totalTokens),
+                        WebStyleCard(
+                            label = "EST. COST",
+                            value = "~$${DecimalFormat("#0.00").format(stats.totalCost)}",
+                            valueColor = ColorWarning,
+                            subtitle = "Estimated, not actual billing",
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                // Baris Metrik 2: Biaya & Success Rate
+                // Overview Cards 2: Input Tokens, Cached Tokens, Output Tokens (3 kolom meniru web)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        MetricCard(
-                            title = stringResource(R.string.total_cost),
-                            value = "$${DecimalFormat("#0.0000").format(stats.totalCost)}",
+                        WebStyleCard(
+                            label = "INPUT",
+                            value = formatTokens(stats.totalPromptTokens),
+                            valueColor = NineRouterBrand,
                             modifier = Modifier.weight(1f)
                         )
-                        MetricCard(
-                            title = stringResource(R.string.success_rate),
-                            value = "${DecimalFormat("#0.0").format(stats.derivedSuccessRate)}%",
+                        WebStyleCard(
+                            label = "CACHED",
+                            value = formatTokens(stats.totalCachedTokens),
+                            valueColor = ColorInfo,
+                            modifier = Modifier.weight(1f)
+                        )
+                        WebStyleCard(
+                            label = "OUTPUT",
+                            value = formatTokens(stats.totalCompletionTokens),
+                            valueColor = ColorSuccess,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -194,6 +237,7 @@ fun DashboardContent(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -203,41 +247,69 @@ fun DashboardContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = stringResource(R.string.solar_system),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = "SOLAR SYSTEM",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "${stats.byModel.size} models",
+                                    text = "${stats.byModel.size} models active",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             SolarSystemView(
                                 stats = stats,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(280.dp)
+                                    .height(290.dp)
                             )
                         }
                     }
                 }
 
-                // Recent Requests
+                // Recent Requests: Tabel ramping meniru RecentRequests di UsageStats.js
                 if (stats.recentRequests.isNotEmpty()) {
                     item {
-                        Text(
-                            text = stringResource(R.string.recent_requests),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                // Header tabel
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "RECENT REQUESTS",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = 0.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
 
-                    items(stats.recentRequests.take(15)) { item ->
-                        RecentRequestRow(item)
+                                Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.8.dp)
+
+                                // Baris-baris request
+                                stats.recentRequests.take(12).forEachIndexed { index, req ->
+                                    WebStyleRecentRow(req)
+                                    if (index < stats.recentRequests.take(12).lastIndex) {
+                                        Divider(
+                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                            thickness = 0.5.dp
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } else if (isLoading) {
@@ -266,83 +338,128 @@ fun DashboardContent(
                     }
                 }
             }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }
 
+/**
+ * Kartu metrik berdesain 1:1 seperti `Card` di `OverviewCards.js` 9Router web:
+ * background surface, border outline halus, radius 14dp, label uppercase font-semibold, angka 2xl bold bergradasi warna.
+ */
 @Composable
-fun MetricCard(
-    title: String,
+fun WebStyleCard(
+    label: String,
     value: String,
+    valueColor: Color,
+    subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(14.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleLarge,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = valueColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
 
+/**
+ * Baris recent request yang persis dengan tabel RecentRequests di web:
+ * dot status bulat 6dp, font monospace untuk model, prompt token (primary↑) dan completion token (success↓).
+ */
 @Composable
-fun RecentRequestRow(item: RecentRequestItem) {
+fun WebStyleRecentRow(item: RecentRequestItem) {
     val isOk = item.status.equals("ok", ignoreCase = true) || item.status.equals("success", ignoreCase = true)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(10.dp)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Dot status
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .size(7.dp)
+                .background(if (isOk) ColorSuccess else ColorDanger, CircleShape)
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Model & Provider
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.model.ifEmpty { "unknown" },
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.provider.uppercase(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // In / Out tokens persis di web: text-primary prompt↑ text-success completion↓
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.model.ifEmpty { "unknown" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "${item.provider.uppercase()} • In: ${formatTokens(item.promptTokens)} Out: ${formatTokens(item.completionTokens)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .background(
-                        if (isOk) ColorSuccess else ColorDanger,
-                        RoundedCornerShape(6.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = item.status.uppercase(),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp
-                )
-            }
+            Text(
+                text = "${formatTokens(item.promptTokens)}↑",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                color = NineRouterBrand
+            )
+            Text(
+                text = "${formatTokens(item.completionTokens)}↓",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                color = ColorSuccess
+            )
         }
     }
 }

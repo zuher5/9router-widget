@@ -17,12 +17,12 @@ import com.ninerouter.monitor.ui.theme.NineRouterBrand
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Warna planet tema 9Router
+// Palet warna planet sesuai aksen 9Router web
 val PlanetColors = listOf(
-    Color(0xFFE56A4A), // 9Router brand terracotta
-    Color(0xFF3B82F6), // Blue
-    Color(0xFF10B981), // Emerald green
-    Color(0xFFF59E0B), // Amber
+    Color(0xFFE56A4A), // Brand warm terracotta
+    Color(0xFF3B82F6), // Info blue
+    Color(0xFF10B981), // Success green
+    Color(0xFFF59E0B), // Warning amber
     Color(0xFF8B5CF6), // Purple
     Color(0xFFEC4899)  // Pink
 )
@@ -33,8 +33,8 @@ fun SolarSystemView(
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val orbitColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val orbitLineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
 
     // Animasi rotasi orbit halus
     val infiniteTransition = rememberInfiniteTransition(label = "orbit_animation")
@@ -42,7 +42,7 @@ fun SolarSystemView(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 24000, easing = LinearEasing),
+            animation = tween(durationMillis = 28000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "orbit_angle"
@@ -50,19 +50,20 @@ fun SolarSystemView(
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val maxRadius = minOf(size.width, size.height) / 2f * 0.88f
+        val availableRadius = minOf(size.width, size.height) / 2f * 0.90f
 
-        // Matahari di tengah = 9Router brand color / warm amber
-        val sunRadius = 26f
+        // Matahari di tengah (9Router core)
+        val sunRadius = 24f
+
         // Outer glow
         drawCircle(
-            color = NineRouterBrand.copy(alpha = 0.15f),
+            color = NineRouterBrand.copy(alpha = 0.12f),
             radius = sunRadius + 14f,
             center = center
         )
         // Mid glow
         drawCircle(
-            color = NineRouterBrand.copy(alpha = 0.35f),
+            color = NineRouterBrand.copy(alpha = 0.28f),
             radius = sunRadius + 6f,
             center = center
         )
@@ -73,7 +74,7 @@ fun SolarSystemView(
             center = center
         )
 
-        // Label "9R" di dalam matahari
+        // Label "9R" di tengah matahari
         val centerLabel = textMeasurer.measure(
             text = AnnotatedString("9R"),
             style = TextStyle(color = Color.White, fontSize = 11.sp)
@@ -86,33 +87,35 @@ fun SolarSystemView(
             )
         )
 
-        // Ambil top 5 model berdasarkan token atau requests
+        // Urutkan model berdasarkan bobot token/requests (top 5)
         val models = stats.byModel.values.toList()
             .sortedByDescending { it.totalTokens.takeIf { t -> t > 0 } ?: it.requests }
             .take(5)
 
-        val maxTokens = models.maxOfOrNull { it.totalTokens.takeIf { t -> t > 0 } ?: it.requests } ?: 1L
+        val maxMetric = models.maxOfOrNull { it.totalTokens.takeIf { t -> t > 0 } ?: it.requests } ?: 1L
+
+        val orbitStep = (availableRadius - sunRadius - 16f) / (models.size.coerceAtLeast(1) + 0.3f)
 
         models.forEachIndexed { index, model ->
-            val orbitRadius = (maxRadius / (models.size + 1)) * (index + 1) + (sunRadius * 0.6f)
+            val orbitRadius = sunRadius + 20f + (orbitStep * (index + 0.8f))
 
             // Lingkaran lintasan orbit
             drawCircle(
-                color = orbitColor,
+                color = orbitLineColor,
                 radius = orbitRadius,
                 center = center,
-                style = Stroke(width = 1.2f)
+                style = Stroke(width = 1f)
             )
 
-            // Posisi planet dengan kecepatan orbit berbeda-beda (planet dalam lebih cepat)
-            val speedFactor = 1f / (index + 0.8f)
-            val angle = Math.toRadians((angleOffset * speedFactor + (index * 65)).toDouble())
+            // Posisi planet
+            val speedFactor = 1f / (index + 0.85f)
+            val angle = Math.toRadians((angleOffset * speedFactor + (index * 72.0)).toDouble())
             val planetX = center.x + (orbitRadius * cos(angle)).toFloat()
             val planetY = center.y + (orbitRadius * sin(angle)).toFloat()
             val planetCenter = Offset(planetX, planetY)
 
             val metricVal = (model.totalTokens.takeIf { it > 0 } ?: model.requests).toFloat()
-            val planetRadius = 7f + ((metricVal / maxTokens.toFloat()) * 11f)
+            val planetRadius = 6.5f + ((metricVal / maxMetric.toFloat()) * 9.5f)
             val planetColor = PlanetColors[index % PlanetColors.size]
 
             // Glow planet
@@ -128,8 +131,17 @@ fun SolarSystemView(
                 center = planetCenter
             )
 
-            // Nama model singkat di bawah planet
-            val shortName = model.rawModel.ifBlank { model.provider }.take(9)
+            // Label nama model bersih
+            val raw = model.rawModel.ifBlank { model.provider }
+            val shortName = when {
+                raw.contains("claude", ignoreCase = true) && raw.contains("sonnet", ignoreCase = true) -> "sonnet"
+                raw.contains("claude", ignoreCase = true) && raw.contains("haiku", ignoreCase = true) -> "haiku"
+                raw.contains("gpt-4", ignoreCase = true) -> "gpt-4o"
+                raw.contains("gemini", ignoreCase = true) -> "gemini"
+                raw.contains("o3", ignoreCase = true) -> "o3-mini"
+                else -> raw.take(8)
+            }
+
             val textLayoutResult = textMeasurer.measure(
                 text = AnnotatedString(shortName),
                 style = TextStyle(color = textColor, fontSize = 9.sp)
@@ -138,7 +150,7 @@ fun SolarSystemView(
                 textLayoutResult = textLayoutResult,
                 topLeft = Offset(
                     planetX - (textLayoutResult.size.width / 2f),
-                    planetY + planetRadius + 2f
+                    planetY + planetRadius + 3f
                 )
             )
         }
