@@ -445,38 +445,41 @@ private fun DrawScope.drawRouterNode(
         )
     }
 
-    // Teks "9Router"
+    // Teks "9Router" & badge
     val labelColor = if (powering) Color(0xFFFDE047) else NineRouterBrand
     val labelResult = textMeasurer.measure(
         text = AnnotatedString("9Router"),
         style = TextStyle(
             color = labelColor,
-            fontSize = (13f * totalScale.coerceIn(0.75f, 1.3f)).sp,
+            fontSize = (12.5f * totalScale).sp,
             fontWeight = FontWeight.Bold
         )
     )
 
-    var textLeft = left + (width - labelResult.size.width) / 2f
-    if (activeCount > 0) textLeft -= (10f * totalScale)
-
-    drawText(
-        textLayoutResult = labelResult,
-        topLeft = Offset(textLeft, top + (height - labelResult.size.height) / 2f)
-    )
-
-    // Badge angka activeCount (jika ada)
     if (activeCount > 0) {
         val badgeText = textMeasurer.measure(
             text = AnnotatedString(activeCount.toString()),
             style = TextStyle(
                 color = Color.Black,
-                fontSize = (10f * totalScale.coerceIn(0.75f, 1.2f)).sp,
+                fontSize = (9.5f * totalScale).sp,
                 fontWeight = FontWeight.Bold
             )
         )
-        val badgeW = (badgeText.size.width + 12f * totalScale).coerceAtLeast(18f * totalScale)
-        val badgeH = 16f * totalScale
-        val badgeLeft = textLeft + labelResult.size.width + (6f * totalScale)
+        val gap = 6f * totalScale
+        val badgeW = (badgeText.size.width + 10f * totalScale).coerceAtLeast(16f * totalScale)
+        val badgeH = 15f * totalScale
+
+        val totalContentW = labelResult.size.width + gap + badgeW
+        val startX = left + (width - totalContentW) / 2f
+
+        // Gambar label teks
+        drawText(
+            textLayoutResult = labelResult,
+            topLeft = Offset(startX, top + (height - labelResult.size.height) / 2f)
+        )
+
+        // Gambar badge angka
+        val badgeLeft = startX + labelResult.size.width + gap
         val badgeTop = top + (height - badgeH) / 2f
 
         drawRoundRect(
@@ -490,6 +493,14 @@ private fun DrawScope.drawRouterNode(
             topLeft = Offset(
                 badgeLeft + (badgeW - badgeText.size.width) / 2f,
                 badgeTop + (badgeH - badgeText.size.height) / 2f
+            )
+        )
+    } else {
+        drawText(
+            textLayoutResult = labelResult,
+            topLeft = Offset(
+                left + (width - labelResult.size.width) / 2f,
+                top + (height - labelResult.size.height) / 2f
             )
         )
     }
@@ -565,7 +576,7 @@ private fun DrawScope.drawProviderNode(
         text = AnnotatedString(node.meta.textIcon),
         style = TextStyle(
             color = color,
-            fontSize = (10f * totalScale.coerceIn(0.75f, 1.25f)).sp,
+            fontSize = (9.5f * totalScale).sp,
             fontWeight = FontWeight.Bold
         )
     )
@@ -584,7 +595,7 @@ private fun DrawScope.drawProviderNode(
         text = AnnotatedString(cleanDisplay),
         style = TextStyle(
             color = if (isActive) color else textColor,
-            fontSize = (10.5f * totalScale.coerceIn(0.75f, 1.25f)).sp,
+            fontSize = (10f * totalScale).sp,
             fontWeight = FontWeight.Medium
         )
     )

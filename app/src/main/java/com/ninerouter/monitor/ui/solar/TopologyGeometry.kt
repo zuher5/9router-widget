@@ -94,11 +94,11 @@ data class TopologyLayout(
 }
 
 object TopologyGeometry {
-    const val NODE_WIDTH = 144f
-    const val NODE_HEIGHT = 32f
-    const val ROUTER_WIDTH = 104f
+    const val NODE_WIDTH = 126f
+    const val NODE_HEIGHT = 30f
+    const val ROUTER_WIDTH = 110f
     const val ROUTER_HEIGHT = 36f
-    const val NODE_GAP = 20f
+    const val NODE_GAP = 28f
 
     /**
      * Implementasi layout elips proporsional:
@@ -139,8 +139,8 @@ object TopologyGeometry {
 
         // Hitung keliling minimum agar jarak antar titik >= NODE_WIDTH + NODE_GAP
         val minRx = ((NODE_WIDTH + NODE_GAP) * count) / (2f * PI.toFloat())
-        val rx = max(210f, minRx)
-        val ry = max(135f, rx * 0.60f)
+        val rx = max(250f, minRx)
+        val ry = max(155f, rx * 0.60f)
 
         val providerNodes = mutableListOf<LayoutNode>()
         val edges = mutableListOf<LayoutEdge>()

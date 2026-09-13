@@ -157,12 +157,47 @@ object SolarSystemRenderer {
 
         val routerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = if (powering) Color.rgb(0xFD, 0xE0, 0x47) else BRAND_COLOR
-            textSize = 13f * fitScale.coerceIn(0.8f, 1.4f)
+            textSize = 12f * fitScale
             isFakeBoldText = true
-            textAlign = Paint.Align.CENTER
+            textAlign = Paint.Align.LEFT
         }
-        val textY = rTop + (rHeight / 2f) + (routerTextPaint.textSize / 3f)
-        canvas.drawText("9Router", rLeft + (rWidth / 2f), textY, routerTextPaint)
+
+        val activeCount = activeSet.size
+        if (activeCount > 0) {
+            val labelW = routerTextPaint.measureText("9Router")
+            val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.BLACK
+                textSize = 9.5f * fitScale
+                isFakeBoldText = true
+                textAlign = Paint.Align.CENTER
+            }
+            val badgeText = activeCount.toString()
+            val badgeTextW = badgePaint.measureText(badgeText)
+            val badgeW = (badgeTextW + 8f * fitScale).coerceAtLeast(16f * fitScale)
+            val badgeH = 14f * fitScale
+            val gap = 5f * fitScale
+
+            val totalW = labelW + gap + badgeW
+            val startX = rLeft + (rWidth - totalW) / 2f
+            val textY = rTop + (rHeight / 2f) + (routerTextPaint.textSize / 3f)
+
+            canvas.drawText("9Router", startX, textY, routerTextPaint)
+
+            val badgeLeft = startX + labelW + gap
+            val badgeTop = rTop + (rHeight - badgeH) / 2f
+            val badgeRect = RectF(badgeLeft, badgeTop, badgeLeft + badgeW, badgeTop + badgeH)
+            val badgeBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(0xFA, 0xCC, 0x15)
+                style = Paint.Style.FILL
+            }
+            canvas.drawRoundRect(badgeRect, badgeH / 2f, badgeH / 2f, badgeBgPaint)
+            val badgeTextY = badgeTop + (badgeH / 2f) + (badgePaint.textSize / 3f)
+            canvas.drawText(badgeText, badgeLeft + (badgeW / 2f), badgeTextY, badgePaint)
+        } else {
+            val textPaintCenter = Paint(routerTextPaint).apply { textAlign = Paint.Align.CENTER }
+            val textY = rTop + (rHeight / 2f) + (textPaintCenter.textSize / 3f)
+            canvas.drawText("9Router", rLeft + (rWidth / 2f), textY, textPaintCenter)
+        }
 
         // 3. Gambar PROVIDER NODES
         layout.providerNodes.forEach { node ->
