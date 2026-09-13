@@ -46,6 +46,7 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 dependencies {
