@@ -50,7 +50,7 @@ object SolarSystemRenderer {
         val (fitScale, fitOffset) = layout.computeFitTransform(
             widthPx.toFloat(),
             heightPx.toFloat(),
-            paddingFraction = 0.14f
+            paddingFraction = 0.08f
         )
 
         val borderColor = if (isDark) Color.rgb(0x38, 0x38, 0x38) else Color.rgb(0xDC, 0xDC, 0xDC)
@@ -198,21 +198,28 @@ object SolarSystemRenderer {
             canvas.drawRoundRect(nodeRect, pRadius, pRadius, borderPaint)
 
             // Icon tile (textIcon)
-            val tileSize = 22f * fitScale
-            val tileLeft = pLeft + (5f * fitScale)
+            val tileSize = (pHeight - (6f * fitScale)).coerceAtLeast(16f * fitScale)
+            val tileLeft = pLeft + (4f * fitScale)
             val tileTop = pTop + (pHeight - tileSize) / 2f
             val tileRect = RectF(tileLeft, tileTop, tileLeft + tileSize, tileTop + tileSize)
             val tileRadius = 4f * fitScale
 
             val tileBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.argb(40, Color.red(pColorInt), Color.green(pColorInt), Color.blue(pColorInt))
+                color = Color.argb(55, Color.red(pColorInt), Color.green(pColorInt), Color.blue(pColorInt))
                 style = Paint.Style.FILL
             }
             canvas.drawRoundRect(tileRect, tileRadius, tileRadius, tileBgPaint)
 
+            val tileBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(100, Color.red(pColorInt), Color.green(pColorInt), Color.blue(pColorInt))
+                style = Paint.Style.STROKE
+                strokeWidth = 1f * fitScale.coerceAtLeast(0.8f)
+            }
+            canvas.drawRoundRect(tileRect, tileRadius, tileRadius, tileBorderPaint)
+
             val tileTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = pColorInt
-                textSize = 9.5f * fitScale.coerceIn(0.7f, 1.3f)
+                textSize = 9.5f * fitScale.coerceIn(0.75f, 1.3f)
                 isFakeBoldText = true
                 textAlign = Paint.Align.CENTER
             }
@@ -226,13 +233,13 @@ object SolarSystemRenderer {
             // Nama provider
             val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (isActive) pColorInt else textColor
-                textSize = 10f * fitScale.coerceIn(0.7f, 1.2f)
+                textSize = 10f * fitScale.coerceIn(0.75f, 1.2f)
                 isFakeBoldText = isActive
                 textAlign = Paint.Align.LEFT
             }
-            val displayName = (node.provider?.displayLabel ?: meta.name).take(13)
+            val displayName = (node.provider?.displayLabel ?: meta.name).take(12)
             val nameY = pTop + (pHeight / 2f) + (namePaint.textSize / 3f)
-            canvas.drawText(displayName, tileLeft + tileSize + (5f * fitScale), nameY, namePaint)
+            canvas.drawText(displayName, tileLeft + tileSize + (7f * fitScale), nameY, namePaint)
 
             // Dot aktif
             if (isActive) {

@@ -178,7 +178,7 @@ fun SolarSystemView(
                             onTap = { tapOffset ->
                                 if (onProviderTap == null) return@detectTapGestures
                                 // Transformasi tap koordinat ke world space
-                                val (fitScale, fitOffset) = layout.computeFitTransform(size.width.toFloat(), size.height.toFloat())
+                                val (fitScale, fitOffset) = layout.computeFitTransform(size.width.toFloat(), size.height.toFloat(), paddingFraction = 0.08f)
                                 val totalScale = fitScale * userScale
                                 val totalOffset = fitOffset * userScale + userPan
 
@@ -195,7 +195,7 @@ fun SolarSystemView(
                         )
                     }
             ) {
-                val (fitScale, fitOffset) = layout.computeFitTransform(size.width, size.height)
+                val (fitScale, fitOffset) = layout.computeFitTransform(size.width, size.height, paddingFraction = 0.08f)
                 val totalScale = fitScale * userScale
                 val totalOffset = fitOffset * userScale + userPan
 
@@ -540,23 +540,32 @@ private fun DrawScope.drawProviderNode(
         style = Stroke(width = (if (isActive) 2f else 1.2f) * totalScale.coerceAtLeast(0.7f))
     )
 
-    // 1. Kotak Icon Tile (26x26) dengan textIcon tebal di dalamnya
-    val iconTileSize = 24f * totalScale
-    val iconTileLeft = left + (6f * totalScale)
+    // 1. Kotak Icon Tile dengan textIcon tebal di dalamnya
+    val iconTileSize = (height - (8f * totalScale)).coerceAtLeast(16f * totalScale)
+    val iconTileLeft = left + (5f * totalScale)
     val iconTileTop = top + (height - iconTileSize) / 2f
 
+    // Background tile icon
     drawRoundRect(
-        color = color.copy(alpha = 0.16f),
+        color = color.copy(alpha = 0.24f),
         topLeft = Offset(iconTileLeft, iconTileTop),
         size = Size(iconTileSize, iconTileSize),
-        cornerRadius = CornerRadius(5f * totalScale, 5f * totalScale)
+        cornerRadius = CornerRadius(4f * totalScale, 4f * totalScale)
+    )
+    // Border halus tile icon
+    drawRoundRect(
+        color = color.copy(alpha = 0.45f),
+        topLeft = Offset(iconTileLeft, iconTileTop),
+        size = Size(iconTileSize, iconTileSize),
+        cornerRadius = CornerRadius(4f * totalScale, 4f * totalScale),
+        style = Stroke(width = 1f * totalScale.coerceAtLeast(0.8f))
     )
 
     val iconTextResult = textMeasurer.measure(
         text = AnnotatedString(node.meta.textIcon),
         style = TextStyle(
             color = color,
-            fontSize = (10f * totalScale.coerceIn(0.7f, 1.2f)).sp,
+            fontSize = (10f * totalScale.coerceIn(0.75f, 1.25f)).sp,
             fontWeight = FontWeight.Bold
         )
     )
@@ -570,17 +579,17 @@ private fun DrawScope.drawProviderNode(
 
     // 2. Nama Provider
     val displayName = node.provider?.displayLabel?.ifBlank { node.meta.name } ?: node.meta.name
-    val cleanDisplay = displayName.take(14)
+    val cleanDisplay = displayName.take(13)
     val nameResult = textMeasurer.measure(
         text = AnnotatedString(cleanDisplay),
         style = TextStyle(
             color = if (isActive) color else textColor,
-            fontSize = (11f * totalScale.coerceIn(0.7f, 1.2f)).sp,
+            fontSize = (11f * totalScale.coerceIn(0.75f, 1.25f)).sp,
             fontWeight = FontWeight.Medium
         )
     )
 
-    val nameLeft = iconTileLeft + iconTileSize + (6f * totalScale)
+    val nameLeft = iconTileLeft + iconTileSize + (8f * totalScale)
     drawText(
         textLayoutResult = nameResult,
         topLeft = Offset(nameLeft, top + (height - nameResult.size.height) / 2f)

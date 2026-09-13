@@ -12,5 +12,6 @@ app/build/
 apk-output/
 screenshots-output/
 screenshots-output-v2/
+screenshots-output*/
 *.jks
 *.keystore

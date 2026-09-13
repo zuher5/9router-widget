@@ -94,14 +94,14 @@ data class TopologyLayout(
 }
 
 object TopologyGeometry {
-    const val NODE_WIDTH = 170f
-    const val NODE_HEIGHT = 36f
-    const val ROUTER_WIDTH = 120f
-    const val ROUTER_HEIGHT = 44f
-    const val NODE_GAP = 24f
+    const val NODE_WIDTH = 136f
+    const val NODE_HEIGHT = 32f
+    const val ROUTER_WIDTH = 104f
+    const val ROUTER_HEIGHT = 38f
+    const val NODE_GAP = 14f
 
     /**
-     * Implementasi 1:1 dengan `buildLayout` di `ProviderTopology.js:263`.
+     * Implementasi layout elips dioptimalkan untuk layar mobile agar mengisi kartu dengan proporsional.
      */
     fun build(
         providers: List<TopologyProvider>,
@@ -135,10 +135,10 @@ object TopologyGeometry {
             )
         }
 
-        // Hitung rx & ry elips persis web
+        // Elips lebih lebar horizontal dan proporsional vertikal
         val minRx = ((NODE_WIDTH + NODE_GAP) * count) / (2f * PI.toFloat())
-        val rx = max(300f, minRx)
-        val ry = max(180f, rx * 0.55f)
+        val rx = max(145f, minRx * 0.72f)
+        val ry = max(96f, rx * 0.60f)
 
         val providerNodes = mutableListOf<LayoutNode>()
         val edges = mutableListOf<LayoutEdge>()
