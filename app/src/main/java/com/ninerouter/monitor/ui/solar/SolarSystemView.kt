@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
@@ -177,7 +178,6 @@ fun SolarSystemView(
                             },
                             onTap = { tapOffset ->
                                 if (onProviderTap == null) return@detectTapGestures
-                                // Transformasi tap koordinat ke world space
                                 val (fitScale, fitOffset) = layout.computeFitTransform(size.width.toFloat(), size.height.toFloat(), paddingFraction = 0.08f)
                                 val totalScale = fitScale * userScale
                                 val totalOffset = fitOffset * userScale + userPan
@@ -199,43 +199,43 @@ fun SolarSystemView(
                 val totalScale = fitScale * userScale
                 val totalOffset = fitOffset * userScale + userPan
 
-                // 1. Gambar EDGES
-                layout.edges.forEach { edge ->
-                    drawTopologyEdge(
-                        edge = edge,
-                        totalScale = totalScale,
-                        totalOffset = totalOffset,
-                        particlePhase = particlePhase,
-                        borderColor = borderColor
-                    )
-                }
+                // Gunakan withTransform untuk mentransformasi seluruh world coordinate secara presisi (termasuk font & shapes)
+                withTransform({
+                    translate(totalOffset.x, totalOffset.y)
+                    scale(totalScale, totalScale, pivot = Offset.Zero)
+                }) {
+                    // 1. Gambar EDGES di world space
+                    layout.edges.forEach { edge ->
+                        drawTopologyEdgeWorld(
+                            edge = edge,
+                            particlePhase = particlePhase,
+                            borderColor = borderColor
+                        )
+                    }
 
-                // 2. Gambar ROUTER CORE NODE (Pusat)
-                val activeCount = activeProviderSet.size
-                drawRouterNode(
-                    node = layout.routerNode,
-                    activeCount = activeCount,
-                    totalScale = totalScale,
-                    totalOffset = totalOffset,
-                    textMeasurer = textMeasurer,
-                    isDark = isDark
-                )
-
-                // 3. Gambar PROVIDER NODES
-                layout.providerNodes.forEach { node ->
-                    val isActive = activeProviderSet.contains(node.meta.id.lowercase())
-                    drawProviderNode(
-                        node = node,
-                        isActive = isActive,
-                        totalScale = totalScale,
-                        totalOffset = totalOffset,
+                    // 2. Gambar ROUTER CORE NODE (Pusat) di world space
+                    val activeCount = activeProviderSet.size
+                    drawRouterNodeWorld(
+                        node = layout.routerNode,
+                        activeCount = activeCount,
                         textMeasurer = textMeasurer,
-                        borderColor = borderColor,
-                        nodeBg = nodeBgColor,
-                        textColor = textColor,
-                        pingScale = pingScale,
-                        pingAlpha = pingAlpha
+                        isDark = isDark
                     )
+
+                    // 3. Gambar PROVIDER NODES di world space
+                    layout.providerNodes.forEach { node ->
+                        val isActive = activeProviderSet.contains(node.meta.id.lowercase())
+                        drawProviderNodeWorld(
+                            node = node,
+                            isActive = isActive,
+                            textMeasurer = textMeasurer,
+                            borderColor = borderColor,
+                            nodeBg = nodeBgColor,
+                            textColor = textColor,
+                            pingScale = pingScale,
+                            pingAlpha = pingAlpha
+                        )
+                    }
                 }
             }
 
@@ -288,27 +288,20 @@ fun SolarSystemView(
 }
 
 /**
- * Menggambar edge sesuai status (IDLE, LAST, ERROR, ACTIVE kame beam).
+ * Menggambar edge sesuai status di world space murni.
  */
-private fun DrawScope.drawTopologyEdge(
+private fun DrawScope.drawTopologyEdgeWorld(
     edge: LayoutEdge,
-    totalScale: Float,
-    totalOffset: Offset,
     particlePhase: Float,
     borderColor: Color
 ) {
-    val srcX = edge.sourcePoint.x * totalScale + totalOffset.x
-    val srcY = edge.sourcePoint.y * totalScale + totalOffset.y
-    val dstX = edge.targetPoint.x * totalScale + totalOffset.x
-    val dstY = edge.targetPoint.y * totalScale + totalOffset.y
-    val cp1X = edge.controlPoint1.x * totalScale + totalOffset.x
-    val cp1Y = edge.controlPoint1.y * totalScale + totalOffset.y
-    val cp2X = edge.controlPoint2.x * totalScale + totalOffset.x
-    val cp2Y = edge.controlPoint2.y * totalScale + totalOffset.y
-
     val path = Path().apply {
-        moveTo(srcX, srcY)
-        cubicTo(cp1X, cp1Y, cp2X, cp2Y, dstX, dstY)
+        moveTo(edge.sourcePoint.x, edge.sourcePoint.y)
+        cubicTo(
+            edge.controlPoint1.x, edge.controlPoint1.y,
+            edge.controlPoint2.x, edge.controlPoint2.y,
+            edge.targetPoint.x, edge.targetPoint.y
+        )
     }
 
     when (edge.status) {
@@ -335,30 +328,26 @@ private fun DrawScope.drawTopologyEdge(
         }
         EdgeStatus.ACTIVE -> {
             // KAME BEAM: multi-layer stroke + bola energi bergerak
-            // 1. Outer halo (cyan)
             drawPath(
                 path = path,
                 color = Color(0xFF22D3EE).copy(alpha = 0.35f),
-                style = Stroke(width = 10f * totalScale.coerceAtLeast(0.6f), cap = StrokeCap.Round)
+                style = Stroke(width = 10f, cap = StrokeCap.Round)
             )
-            // 2. Mid plasma (green)
             drawPath(
                 path = path,
                 color = Color(0xFF4ADE80).copy(alpha = 0.85f),
-                style = Stroke(width = 5f * totalScale.coerceAtLeast(0.6f), cap = StrokeCap.Round)
+                style = Stroke(width = 5f, cap = StrokeCap.Round)
             )
-            // 3. Hot white core
             drawPath(
                 path = path,
                 color = Color(0xFFF8FAFC),
-                style = Stroke(width = 2.2f * totalScale.coerceAtLeast(0.6f), cap = StrokeCap.Round)
+                style = Stroke(width = 2.2f, cap = StrokeCap.Round)
             )
 
-            // 4. Energy orbs berjalan di sepanjang kurva
+            // Energy orbs berjalan di sepanjang kurva
             val pathMeasure = PathMeasure().apply { setPath(path, false) }
             val length = pathMeasure.length
             if (length > 0f) {
-                // 6 bola energi dengan variasi kecepatan dan offset
                 val orbCount = 6
                 for (i in 0 until orbCount) {
                     val speedFactor = 0.7f + (i * 0.12f)
@@ -367,19 +356,17 @@ private fun DrawScope.drawTopologyEdge(
                     val pos = pathMeasure.getPosition(distance)
 
                     val orbColor = when (i % 3) {
-                        0 -> Color(0xFFFDE047) // Kuning
-                        1 -> Color(0xFF67E8F9) // Cyan muda
+                        0 -> Color(0xFFFDE047)
+                        1 -> Color(0xFF67E8F9)
                         else -> Color.White
                     }
-                    val orbRadius = (if (i % 2 == 0) 3.8f else 2.5f) * totalScale.coerceIn(0.7f, 1.4f)
+                    val orbRadius = if (i % 2 == 0) 4f else 2.5f
 
-                    // Halo bola
                     drawCircle(
                         color = Color(0xFF22D3EE).copy(alpha = 0.5f),
-                        radius = orbRadius + 2.5f,
+                        radius = orbRadius + 3f,
                         center = pos
                     )
-                    // Inti bola
                     drawCircle(
                         color = orbColor,
                         radius = orbRadius,
@@ -392,29 +379,26 @@ private fun DrawScope.drawTopologyEdge(
 }
 
 /**
- * Menggambar simpul pusat 9Router.
+ * Menggambar simpul pusat 9Router di world space.
  */
-private fun DrawScope.drawRouterNode(
+private fun DrawScope.drawRouterNodeWorld(
     node: LayoutNode,
     activeCount: Int,
-    totalScale: Float,
-    totalOffset: Offset,
     textMeasurer: TextMeasurer,
     isDark: Boolean
 ) {
-    val left = node.bounds.left * totalScale + totalOffset.x
-    val top = node.bounds.top * totalScale + totalOffset.y
-    val width = node.bounds.width * totalScale
-    val height = node.bounds.height * totalScale
+    val left = node.bounds.left
+    val top = node.bounds.top
+    val width = node.bounds.width
+    val height = node.bounds.height
 
-    val cornerRadius = CornerRadius(12f * totalScale, 12f * totalScale)
+    val cornerRadius = CornerRadius(10f, 10f)
     val roundRect = RoundRect(left, top, left + width, top + height, cornerRadius)
     val path = Path().apply { addRoundRect(roundRect) }
 
     val powering = activeCount > 0
 
     if (powering) {
-        // Gradient powering: primary/30 -> yellow/20 -> cyan/25
         val brush = Brush.linearGradient(
             colors = listOf(
                 NineRouterBrand.copy(alpha = 0.35f),
@@ -425,15 +409,12 @@ private fun DrawScope.drawRouterNode(
             end = Offset(left + width, top + height)
         )
         drawPath(path = path, brush = brush)
-
-        // Border kuning menyala
         drawPath(
             path = path,
             color = Color(0xFFFDE047),
-            style = Stroke(width = 2.2f * totalScale.coerceAtLeast(0.8f))
+            style = Stroke(width = 2.2f)
         )
     } else {
-        // Idle: bg primary/5 + border primary
         drawPath(
             path = path,
             color = NineRouterBrand.copy(alpha = if (isDark) 0.12f else 0.08f)
@@ -441,17 +422,16 @@ private fun DrawScope.drawRouterNode(
         drawPath(
             path = path,
             color = NineRouterBrand,
-            style = Stroke(width = 1.8f * totalScale.coerceAtLeast(0.8f))
+            style = Stroke(width = 1.8f)
         )
     }
 
-    // Teks "9Router" & badge
     val labelColor = if (powering) Color(0xFFFDE047) else NineRouterBrand
     val labelResult = textMeasurer.measure(
         text = AnnotatedString("9Router"),
         style = TextStyle(
             color = labelColor,
-            fontSize = (12.5f * totalScale).sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
     )
@@ -461,24 +441,22 @@ private fun DrawScope.drawRouterNode(
             text = AnnotatedString(activeCount.toString()),
             style = TextStyle(
                 color = Color.Black,
-                fontSize = (9.5f * totalScale).sp,
+                fontSize = 9.5.sp,
                 fontWeight = FontWeight.Bold
             )
         )
-        val gap = 6f * totalScale
-        val badgeW = (badgeText.size.width + 10f * totalScale).coerceAtLeast(16f * totalScale)
-        val badgeH = 15f * totalScale
+        val gap = 6f
+        val badgeW = (badgeText.size.width + 10f).coerceAtLeast(16f)
+        val badgeH = 15f
 
         val totalContentW = labelResult.size.width + gap + badgeW
         val startX = left + (width - totalContentW) / 2f
 
-        // Gambar label teks
         drawText(
             textLayoutResult = labelResult,
             topLeft = Offset(startX, top + (height - labelResult.size.height) / 2f)
         )
 
-        // Gambar badge angka
         val badgeLeft = startX + labelResult.size.width + gap
         val badgeTop = top + (height - badgeH) / 2f
 
@@ -507,13 +485,11 @@ private fun DrawScope.drawRouterNode(
 }
 
 /**
- * Menggambar node provider (rect, textIcon tile, nama, dan ping dot bila aktif).
+ * Menggambar node provider di world space murni.
  */
-private fun DrawScope.drawProviderNode(
+private fun DrawScope.drawProviderNodeWorld(
     node: LayoutNode,
     isActive: Boolean,
-    totalScale: Float,
-    totalOffset: Offset,
     textMeasurer: TextMeasurer,
     borderColor: Color,
     nodeBg: Color,
@@ -521,12 +497,12 @@ private fun DrawScope.drawProviderNode(
     pingScale: Float,
     pingAlpha: Float
 ) {
-    val left = node.bounds.left * totalScale + totalOffset.x
-    val top = node.bounds.top * totalScale + totalOffset.y
-    val width = node.bounds.width * totalScale
-    val height = node.bounds.height * totalScale
+    val left = node.bounds.left
+    val top = node.bounds.top
+    val width = node.bounds.width
+    val height = node.bounds.height
 
-    val cornerRadius = CornerRadius(8f * totalScale, 8f * totalScale)
+    val cornerRadius = CornerRadius(7f, 7f)
     val roundRect = RoundRect(left, top, left + width, top + height, cornerRadius)
     val path = Path().apply { addRoundRect(roundRect) }
 
@@ -537,46 +513,42 @@ private fun DrawScope.drawProviderNode(
         drawPath(
             path = path,
             color = color.copy(alpha = 0.25f),
-            style = Stroke(width = 6f * totalScale)
+            style = Stroke(width = 6f)
         )
     }
 
-    // Background kartu
     drawPath(path = path, color = nodeBg)
 
-    // Border: aktif warna provider tebal 2dp, idle outline
     drawPath(
         path = path,
         color = if (isActive) color else borderColor,
-        style = Stroke(width = (if (isActive) 2f else 1.2f) * totalScale.coerceAtLeast(0.7f))
+        style = Stroke(width = if (isActive) 2f else 1.2f)
     )
 
-    // 1. Kotak Icon Tile dengan textIcon tebal di dalamnya
-    val iconTileSize = (height - (8f * totalScale)).coerceAtLeast(16f * totalScale)
-    val iconTileLeft = left + (5f * totalScale)
-    val iconTileTop = top + (height - iconTileSize) / 2f
+    // Kotak Icon Tile
+    val iconTileSize = height - 8f
+    val iconTileLeft = left + 4f
+    val iconTileTop = top + 4f
 
-    // Background tile icon
     drawRoundRect(
-        color = color.copy(alpha = 0.24f),
+        color = color.copy(alpha = 0.22f),
         topLeft = Offset(iconTileLeft, iconTileTop),
         size = Size(iconTileSize, iconTileSize),
-        cornerRadius = CornerRadius(4f * totalScale, 4f * totalScale)
+        cornerRadius = CornerRadius(4f, 4f)
     )
-    // Border halus tile icon
     drawRoundRect(
         color = color.copy(alpha = 0.45f),
         topLeft = Offset(iconTileLeft, iconTileTop),
         size = Size(iconTileSize, iconTileSize),
-        cornerRadius = CornerRadius(4f * totalScale, 4f * totalScale),
-        style = Stroke(width = 1f * totalScale.coerceAtLeast(0.8f))
+        cornerRadius = CornerRadius(4f, 4f),
+        style = Stroke(width = 1f)
     )
 
     val iconTextResult = textMeasurer.measure(
         text = AnnotatedString(node.meta.textIcon),
         style = TextStyle(
             color = color,
-            fontSize = (9.5f * totalScale).sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Bold
         )
     )
@@ -588,37 +560,35 @@ private fun DrawScope.drawProviderNode(
         )
     )
 
-    // 2. Nama Provider
+    // Nama Provider
     val displayName = node.provider?.displayLabel?.ifBlank { node.meta.name } ?: node.meta.name
-    val cleanDisplay = if (isActive) displayName.take(10) else displayName.take(12)
+    val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(11)
     val nameResult = textMeasurer.measure(
         text = AnnotatedString(cleanDisplay),
         style = TextStyle(
             color = if (isActive) color else textColor,
-            fontSize = (10f * totalScale).sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium
         )
     )
 
-    val nameLeft = iconTileLeft + iconTileSize + (7f * totalScale)
+    val nameLeft = iconTileLeft + iconTileSize + 6f
     drawText(
         textLayoutResult = nameResult,
         topLeft = Offset(nameLeft, top + (height - nameResult.size.height) / 2f)
     )
 
-    // 3. Ping dot saat aktif (persis animate-ping di ProviderTopology.js:84)
+    // Ping dot jika aktif
     if (isActive) {
-        val dotCenterX = left + width - (10f * totalScale)
+        val dotCenterX = left + width - 9f
         val dotCenterY = top + height / 2f
-        val baseRadius = 3f * totalScale
+        val baseRadius = 3f
 
-        // Lingkaran ping mengembang dan memudar
         drawCircle(
             color = color.copy(alpha = pingAlpha),
             radius = baseRadius * pingScale,
             center = Offset(dotCenterX, dotCenterY)
         )
-        // Lingkaran solid
         drawCircle(
             color = color,
             radius = baseRadius,
