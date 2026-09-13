@@ -270,7 +270,7 @@ fun RecentRequestRow(item: RecentRequestItem) {
         ) {
             Text(
                 text = item.status.uppercase(),
-                color = Color.white,
+                color = Color.White,
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp
             )
