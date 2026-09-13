@@ -22,12 +22,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.*
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Paint as AndroidPaint
 import com.ninerouter.monitor.data.model.TopologyProvider
 import com.ninerouter.monitor.data.model.UsageStatsResponse
 import com.ninerouter.monitor.ui.theme.NineRouterBrand
@@ -218,7 +218,6 @@ fun SolarSystemView(
                     drawRouterNodeWorld(
                         node = layout.routerNode,
                         activeCount = activeCount,
-                        textMeasurer = textMeasurer,
                         isDark = isDark
                     )
 
@@ -228,7 +227,6 @@ fun SolarSystemView(
                         drawProviderNodeWorld(
                             node = node,
                             isActive = isActive,
-                            textMeasurer = textMeasurer,
                             borderColor = borderColor,
                             nodeBg = nodeBgColor,
                             textColor = textColor,
@@ -426,61 +424,53 @@ private fun DrawScope.drawRouterNodeWorld(
         )
     }
 
-    val labelColor = if (powering) Color(0xFFFDE047) else NineRouterBrand
-    val labelResult = textMeasurer.measure(
-        text = AnnotatedString("9Router"),
-        style = TextStyle(
-            color = labelColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
-    )
+    // Teks 9Router & badge menggunakan AndroidPaint di world space
+    val labelColorInt = if (powering) android.graphics.Color.rgb(0xFD, 0xE0, 0x47) else android.graphics.Color.rgb(0xE5, 0x6A, 0x4A)
 
-    if (activeCount > 0) {
-        val badgeText = textMeasurer.measure(
-            text = AnnotatedString(activeCount.toString()),
-            style = TextStyle(
-                color = Color.Black,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Bold
-            )
-        )
-        val gap = 6f
-        val badgeW = (badgeText.size.width + 10f).coerceAtLeast(16f)
-        val badgeH = 15f
+    drawIntoCanvas { canvas ->
+        val native = canvas.nativeCanvas
+        val routerPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            color = labelColorInt
+            textSize = 12.5f
+            isFakeBoldText = true
+            textAlign = AndroidPaint.Align.LEFT
+        }
 
-        val totalContentW = labelResult.size.width + gap + badgeW
-        val startX = left + (width - totalContentW) / 2f
+        if (activeCount > 0) {
+            val labelW = routerPaint.measureText("9Router")
+            val badgePaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.BLACK
+                textSize = 9.5f
+                isFakeBoldText = true
+                textAlign = AndroidPaint.Align.CENTER
+            }
+            val badgeText = activeCount.toString()
+            val badgeTextW = badgePaint.measureText(badgeText)
+            val badgeW = (badgeTextW + 8f).coerceAtLeast(16f)
+            val badgeH = 15f
+            val gap = 5f
 
-        drawText(
-            textLayoutResult = labelResult,
-            topLeft = Offset(startX, top + (height - labelResult.size.height) / 2f)
-        )
+            val totalContentW = labelW + gap + badgeW
+            val startX = left + (width - totalContentW) / 2f
+            val textY = top + (height / 2f) + (routerPaint.textSize / 3f)
 
-        val badgeLeft = startX + labelResult.size.width + gap
-        val badgeTop = top + (height - badgeH) / 2f
+            native.drawText("9Router", startX, textY, routerPaint)
 
-        drawRoundRect(
-            color = Color(0xFFFACC15),
-            topLeft = Offset(badgeLeft, badgeTop),
-            size = Size(badgeW, badgeH),
-            cornerRadius = CornerRadius(badgeH / 2f, badgeH / 2f)
-        )
-        drawText(
-            textLayoutResult = badgeText,
-            topLeft = Offset(
-                badgeLeft + (badgeW - badgeText.size.width) / 2f,
-                badgeTop + (badgeH - badgeText.size.height) / 2f
-            )
-        )
-    } else {
-        drawText(
-            textLayoutResult = labelResult,
-            topLeft = Offset(
-                left + (width - labelResult.size.width) / 2f,
-                top + (height - labelResult.size.height) / 2f
-            )
-        )
+            val badgeLeft = startX + labelW + gap
+            val badgeTop = top + (height - badgeH) / 2f
+            val badgeRect = android.graphics.RectF(badgeLeft, badgeTop, badgeLeft + badgeW, badgeTop + badgeH)
+            val badgeBgPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.rgb(0xFA, 0xCC, 0x15)
+                style = AndroidPaint.Style.FILL
+            }
+            native.drawRoundRect(badgeRect, badgeH / 2f, badgeH / 2f, badgeBgPaint)
+            val badgeTextY = badgeTop + (badgeH / 2f) + (badgePaint.textSize / 3f)
+            native.drawText(badgeText, badgeLeft + (badgeW / 2f), badgeTextY, badgePaint)
+        } else {
+            val centerPaint = AndroidPaint(routerPaint).apply { textAlign = AndroidPaint.Align.CENTER }
+            val textY = top + (height / 2f) + (centerPaint.textSize / 3f)
+            native.drawText("9Router", left + (width / 2f), textY, centerPaint)
+        }
     }
 }
 
@@ -490,7 +480,6 @@ private fun DrawScope.drawRouterNodeWorld(
 private fun DrawScope.drawProviderNodeWorld(
     node: LayoutNode,
     isActive: Boolean,
-    textMeasurer: TextMeasurer,
     borderColor: Color,
     nodeBg: Color,
     textColor: Color,
@@ -544,39 +533,42 @@ private fun DrawScope.drawProviderNodeWorld(
         style = Stroke(width = 1f)
     )
 
-    val iconTextResult = textMeasurer.measure(
-        text = AnnotatedString(node.meta.textIcon),
-        style = TextStyle(
-            color = color,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold
-        )
+    val colorInt = android.graphics.Color.rgb(
+        (color.red * 255).toInt(),
+        (color.green * 255).toInt(),
+        (color.blue * 255).toInt()
     )
-    drawText(
-        textLayoutResult = iconTextResult,
-        topLeft = Offset(
-            iconTileLeft + (iconTileSize - iconTextResult.size.width) / 2f,
-            iconTileTop + (iconTileSize - iconTextResult.size.height) / 2f
-        )
+    val textColorInt = android.graphics.Color.rgb(
+        (textColor.red * 255).toInt(),
+        (textColor.green * 255).toInt(),
+        (textColor.blue * 255).toInt()
     )
 
-    // Nama Provider
-    val displayName = node.provider?.displayLabel?.ifBlank { node.meta.name } ?: node.meta.name
-    val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(11)
-    val nameResult = textMeasurer.measure(
-        text = AnnotatedString(cleanDisplay),
-        style = TextStyle(
-            color = if (isActive) color else textColor,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium
-        )
-    )
+    drawIntoCanvas { canvas ->
+        val native = canvas.nativeCanvas
 
-    val nameLeft = iconTileLeft + iconTileSize + 6f
-    drawText(
-        textLayoutResult = nameResult,
-        topLeft = Offset(nameLeft, top + (height - nameResult.size.height) / 2f)
-    )
+        // 1. Teks icon tile
+        val iconPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            this.color = colorInt
+            textSize = 9.5f
+            isFakeBoldText = true
+            textAlign = AndroidPaint.Align.CENTER
+        }
+        val iconTextY = iconTileTop + (iconTileSize / 2f) + (iconPaint.textSize / 3f)
+        native.drawText(node.meta.textIcon, iconTileLeft + (iconTileSize / 2f), iconTextY, iconPaint)
+
+        // 2. Nama Provider
+        val namePaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            this.color = if (isActive) colorInt else textColorInt
+            textSize = 10f
+            isFakeBoldText = isActive
+            textAlign = AndroidPaint.Align.LEFT
+        }
+        val displayName = (node.provider?.displayLabel ?: node.meta.name)
+        val cleanDisplay = if (isActive) displayName.take(9) else displayName.take(11)
+        val nameY = top + (height / 2f) + (namePaint.textSize / 3f)
+        native.drawText(cleanDisplay, iconTileLeft + iconTileSize + 6f, nameY, namePaint)
+    }
 
     // Ping dot jika aktif
     if (isActive) {
