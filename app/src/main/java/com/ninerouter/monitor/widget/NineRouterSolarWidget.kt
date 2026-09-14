@@ -176,7 +176,7 @@ class NineRouterSolarWidget : GlanceAppWidget() {
                             if (activeReq != null) {
                                 val modelName = activeReq.model.ifEmpty { activeReq.provider }
                                 Text(
-                                    text = "⚡ Active: ${activeReq.provider} / $modelName",
+                                    text = "Active: ${activeReq.provider} / $modelName",
                                     style = TextStyle(
                                         color = emeraldColor,
                                         fontSize = 10.sp,

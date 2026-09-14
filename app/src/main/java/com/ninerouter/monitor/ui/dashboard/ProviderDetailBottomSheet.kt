@@ -139,20 +139,20 @@ fun ProviderDetailBottomSheet(
                             Text(
                                 text = provider.provider.lowercase(),
                                 fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium,
                                 color = TextSecondary
                             )
                         }
                     }
 
-                    // Operational Status Pill
+                    // Operational Status Badge (F-08: disciplined 6dp radius)
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = ObsidianSurfaceVariant,
                         border = BorderStroke(1.dp, if (activeModels.isNotEmpty()) NeonEmerald.copy(alpha = 0.5f) else ObsidianBorder)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
@@ -164,7 +164,7 @@ fun ProviderDetailBottomSheet(
                             Text(
                                 text = if (activeModels.isNotEmpty()) "ACTIVE" else "ONLINE",
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp,
                                 color = if (activeModels.isNotEmpty()) NeonEmerald else NeonCyan
                             )
@@ -173,12 +173,12 @@ fun ProviderDetailBottomSheet(
                 }
             }
 
-            // Active Model Stream Notice
+            // Active Model Stream Notice (F-05: remove emoji decoration)
             if (activeModels.isNotEmpty()) {
                 item {
                     Surface(
                         color = ColorSuccessGlow,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, NeonEmerald.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -187,11 +187,15 @@ fun ProviderDetailBottomSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("⚡", fontSize = 13.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(NeonEmerald, CircleShape)
+                            )
                             Text(
                                 text = "Serving live: ${activeModels.joinToString(", ")}",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = NeonEmerald
                             )
                         }
@@ -232,13 +236,20 @@ fun ProviderDetailBottomSheet(
                 }
             }
 
-            // 3. Quota Usage Speedometer Gauge (RPM & TPM)
+            // 3. Traffic Share & Utilization Card (Honest Router Telemetry - F-02 Fixed)
             item {
+                val totalRouterReqs = (stats?.totalRequests ?: 0L).coerceAtLeast(1L)
+                val providerReqs = stat?.requests ?: 0L
+                val trafficSharePct = (providerReqs.toFloat() / totalRouterReqs * 100f).coerceIn(0f, 100f)
+
+                val totalProvTokens = (stat?.promptTokens ?: 0L) + (stat?.completionTokens ?: 0L)
+                val avgTokensPerReq = if (providerReqs > 0) totalProvTokens / providerReqs else 0L
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceVariant.copy(alpha = 0.6f)),
                     border = BorderStroke(1.dp, ObsidianBorder),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -252,61 +263,93 @@ fun ProviderDetailBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "QUOTA & RATE LIMITS",
+                                text = "TRAFFIC SHARE & UTILIZATION",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp,
                                 color = TextSecondary
                             )
-                            Text(
-                                text = "HEALTHY",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeonEmerald
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = NeonCyan.copy(alpha = 0.15f),
+                                border = BorderStroke(0.6.dp, NeonCyan.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "${DecimalFormat("#0.0").format(trafficSharePct)}% SHARE",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        // Traffic Share Progress Bar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .background(ObsidianBorder, RoundedCornerShape(3.dp))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = (trafficSharePct / 100f).coerceIn(0.02f, 1f))
+                                    .fillMaxHeight()
+                                    .background(NeonCyan, RoundedCornerShape(3.dp))
                             )
                         }
 
+                        // Real Operational Metrics
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // RPM Gauge
-                            QuotaSpeedometerGauge(
-                                title = "REQUESTS (RPM)",
-                                current = (activeModels.size * 7 + (stat?.requests ?: 0L) % 15).coerceIn(4, 28).toInt(),
-                                max = 30,
-                                unit = "RPM",
-                                progressColor = NeonCyan
-                            )
-
-                            // TPM Gauge
-                            val tpmEstimate = (((stat?.promptTokens ?: 0L) % 180_000) / 1000).coerceIn(40, 220).toInt()
-                            QuotaSpeedometerGauge(
-                                title = "TOKENS (TPM)",
-                                current = tpmEstimate,
-                                max = 250,
-                                unit = "k TPM",
-                                progressColor = NeonViolet
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("AVG TOKENS / REQ", fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = TextTertiary)
+                                Text(
+                                    text = "${formatTokens(avgTokensPerReq)} tok",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("INPUT / OUTPUT BREAKDOWN", fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = TextTertiary)
+                                Text(
+                                    text = "${formatTokens(stat?.promptTokens ?: 0L)} in • ${formatTokens(stat?.completionTokens ?: 0L)} out",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextSecondary
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // 4. Latency History Graph (p95 & p50 dual line chart)
+            // 4. Latency Dynamics (Real Telemetry Extraction - F-03 Fixed)
             item {
+                val providerRecent = remember(stats, provider.provider) {
+                    stats?.recentRequests?.filter {
+                        it.provider.equals(provider.provider, ignoreCase = true)
+                    }.orEmpty()
+                }
+                val latencySamples = remember(providerRecent) {
+                    providerRecent.mapNotNull { it.latencyMs }.filter { it > 0 }
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceVariant.copy(alpha = 0.6f)),
                     border = BorderStroke(1.dp, ObsidianBorder),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -314,44 +357,78 @@ fun ProviderDetailBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "LATENCY DYNAMICS (p95 vs p50)",
+                                text = "RECENT LATENCY DYNAMICS",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp,
                                 color = TextSecondary
                             )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(modifier = Modifier.size(6.dp).background(NeonCyan, CircleShape))
-                                    Text("p95", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(modifier = Modifier.size(6.dp).background(NeonViolet, CircleShape))
-                                    Text("p50", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = NeonViolet)
-                                }
+                            if (latencySamples.isNotEmpty()) {
+                                Text(
+                                    text = "${latencySamples.size} SAMPLES",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan
+                                )
                             }
                         }
 
-                        // Canvas Dual Line Chart
-                        LatencyHistoryChart(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(95.dp)
-                        )
+                        if (latencySamples.isNotEmpty()) {
+                            val minLatency = latencySamples.minOrNull() ?: 0L
+                            val avgLatency = latencySamples.average().toLong()
+                            val maxLatency = latencySamples.maxOrNull() ?: 0L
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                LatencyMetricChip(
+                                    label = "MIN",
+                                    value = "${minLatency}ms",
+                                    color = NeonEmerald,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                LatencyMetricChip(
+                                    label = "AVG",
+                                    value = "${avgLatency}ms",
+                                    color = NeonCyan,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                LatencyMetricChip(
+                                    label = "MAX",
+                                    value = "${maxLatency}ms",
+                                    color = if (maxLatency > 1500) NeonCoral else NeonAmber,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            if (latencySamples.size >= 2) {
+                                RealLatencySequenceChart(
+                                    samples = latencySamples.take(16).reversed(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(64.dp)
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No recent latency telemetry recorded for this provider",
+                                    fontSize = 11.5.sp,
+                                    color = TextTertiary
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // 5. Model Breakdown List
+            // 5. Model Breakdown List (Clean Sans Typography per F-06)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -368,7 +445,8 @@ fun ProviderDetailBottomSheet(
                     Text(
                         text = "REQS • TOKENS • COST",
                         fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.5.sp,
                         color = TextTertiary
                     )
                 }
@@ -376,7 +454,7 @@ fun ProviderDetailBottomSheet(
 
             items(modelsForProvider) { modelStat ->
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = ObsidianSurfaceVariant.copy(alpha = 0.45f),
                     border = BorderStroke(0.8.dp, ObsidianBorderSubtle),
                     modifier = Modifier.fillMaxWidth()
@@ -395,8 +473,7 @@ fun ProviderDetailBottomSheet(
                             Text(
                                 text = modelStat.rawModel.ifBlank { "default-model" },
                                 fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -415,14 +492,13 @@ fun ProviderDetailBottomSheet(
                             Text(
                                 text = formatTokens(modelStat.totalTokens),
                                 fontSize = 12.5.sp,
-                                fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
                                 color = NeonViolet
                             )
                             Text(
                                 text = "$${DecimalFormat("#0.000").format(modelStat.cost)}",
                                 fontSize = 10.5.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
                                 color = NeonAmber
                             )
                         }
@@ -433,110 +509,59 @@ fun ProviderDetailBottomSheet(
     }
 }
 
-/**
- * Speedometer Circular Arc (220 derajat) untuk visualisasi kuota RPM & TPM.
- */
 @Composable
-fun QuotaSpeedometerGauge(
-    title: String,
-    current: Int,
-    max: Int,
-    unit: String,
-    progressColor: Color,
+fun LatencyMetricChip(
+    label: String,
+    value: String,
+    color: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = ObsidianSurface,
+        border = BorderStroke(0.8.dp, ObsidianBorder),
         modifier = modifier
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(80.dp)
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeW = 6.dp.toPx()
-                val diameter = size.minDimension - strokeW
-                val topLeft = Offset(strokeW / 2f, strokeW / 2f)
-                val arcSize = Size(diameter, diameter)
-
-                val startAngle = 160f
-                val sweepTotal = 220f
-
-                // Track Background
-                drawArc(
-                    color = ObsidianBorder,
-                    startAngle = startAngle,
-                    sweepAngle = sweepTotal,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-
-                // Progress Arc
-                val progressFraction = (current.toFloat() / max.coerceAtLeast(1)).coerceIn(0.05f, 1f)
-                drawArc(
-                    color = progressColor,
-                    startAngle = startAngle,
-                    sweepAngle = sweepTotal * progressFraction,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "$current",
-                    fontSize = 15.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Black,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "/$max $unit",
-                    fontSize = 8.5.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextTertiary
-                )
-            }
+            Text(
+                text = label,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
+                color = TextTertiary
+            )
+            Text(
+                text = value,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
         }
-
-        Text(
-            text = title,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary
-        )
     }
 }
 
 /**
- * Dual Line Chart (p95 Cyan & p50 Violet) dengan kurva Bezier dan grid halus.
+ * Real Latency Sequence Line Chart connecting actual historical sample points.
  */
 @Composable
-fun LatencyHistoryChart(
+fun RealLatencySequenceChart(
+    samples: List<Long>,
     modifier: Modifier = Modifier
 ) {
-    // Sample sequence latency points (ms)
-    val p95Points = listOf(420f, 460f, 520f, 680f, 610f, 580f, 740f, 820f, 690f, 610f)
-    val p50Points = listOf(190f, 210f, 230f, 280f, 260f, 240f, 310f, 340f, 290f, 260f)
-
     Canvas(modifier = modifier) {
+        if (samples.size < 2) return@Canvas
+
         val width = size.width
         val height = size.height
+        val maxVal = samples.maxOrNull()?.toFloat()?.coerceAtLeast(100f) ?: 100f
+        val minVal = (samples.minOrNull()?.toFloat() ?: 0f).coerceAtLeast(0f)
+        val range = (maxVal - minVal).coerceAtLeast(10f)
 
-        val maxVal = 900f
-        val minVal = 100f
-        val range = maxVal - minVal
-
-        // 1. Gambar horizontal grid lines (dashed)
-        val gridLines = 3
+        // Subtle horizontal guide lines
+        val gridLines = 2
         for (i in 1..gridLines) {
             val y = height * (i.toFloat() / (gridLines + 1))
             drawLine(
@@ -548,59 +573,38 @@ fun LatencyHistoryChart(
             )
         }
 
-        // 2. Gambar p95 (Cyan) Line & Gradient Fill
-        val stepX = width / (p95Points.size - 1)
-        val p95Path = Path()
-        val p95Fill = Path()
+        val stepX = width / (samples.size - 1)
+        val path = Path()
+        val fillPath = Path()
 
-        p95Points.forEachIndexed { i, p ->
-            val y = height - ((p - minVal) / range) * (height * 0.85f) - (height * 0.08f)
+        samples.forEachIndexed { i, sample ->
+            val y = height - ((sample.toFloat() - minVal) / range) * (height * 0.78f) - (height * 0.11f)
             val x = i * stepX
             if (i == 0) {
-                p95Path.moveTo(x, y)
-                p95Fill.moveTo(x, height)
-                p95Fill.lineTo(x, y)
+                path.moveTo(x, y)
+                fillPath.moveTo(x, height)
+                fillPath.lineTo(x, y)
             } else {
                 val prevX = (i - 1) * stepX
-                val prevY = height - ((p95Points[i - 1] - minVal) / range) * (height * 0.85f) - (height * 0.08f)
+                val prevY = height - ((samples[i - 1].toFloat() - minVal) / range) * (height * 0.78f) - (height * 0.11f)
                 val cX = (prevX + x) / 2f
-                p95Path.cubicTo(cX, prevY, cX, y, x, y)
-                p95Fill.cubicTo(cX, prevY, cX, y, x, y)
+                path.cubicTo(cX, prevY, cX, y, x, y)
+                fillPath.cubicTo(cX, prevY, cX, y, x, y)
             }
         }
-        p95Fill.lineTo(width, height)
-        p95Fill.close()
+        fillPath.lineTo(width, height)
+        fillPath.close()
 
         drawPath(
-            path = p95Fill,
+            path = fillPath,
             brush = Brush.verticalGradient(
                 colors = listOf(NeonCyan.copy(alpha = 0.22f), Color.Transparent)
             )
         )
         drawPath(
-            path = p95Path,
+            path = path,
             color = NeonCyan,
             style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
-        // 3. Gambar p50 (Violet) Line
-        val p50Path = Path()
-        p50Points.forEachIndexed { i, p ->
-            val y = height - ((p - minVal) / range) * (height * 0.85f) - (height * 0.08f)
-            val x = i * stepX
-            if (i == 0) {
-                p50Path.moveTo(x, y)
-            } else {
-                val prevX = (i - 1) * stepX
-                val prevY = height - ((p50Points[i - 1] - minVal) / range) * (height * 0.85f) - (height * 0.08f)
-                val cX = (prevX + x) / 2f
-                p50Path.cubicTo(cX, prevY, cX, y, x, y)
-            }
-        }
-        drawPath(
-            path = p50Path,
-            color = NeonViolet,
-            style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }

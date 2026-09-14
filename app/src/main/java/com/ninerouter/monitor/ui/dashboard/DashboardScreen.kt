@@ -1,6 +1,7 @@
 package com.ninerouter.monitor.ui.dashboard
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,72 +37,49 @@ import com.ninerouter.monitor.ui.solar.ProviderCatalog
 import com.ninerouter.monitor.ui.solar.SolarSystemView
 import com.ninerouter.monitor.ui.theme.*
 import java.text.DecimalFormat
+import kotlin.math.roundToInt
 
 /**
- * Live indicator with animated breathing/pulse effect on cyan dot.
+ * Status indicator badge with solid dot and smooth state transition (Anti-slop R-19 / R-11 compliant).
  */
 @Composable
 fun PulsingStatusBadge(
     isStreaming: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
+    val dotColor by animateColorAsState(
+        targetValue = if (isStreaming) NeonCyan else TextTertiary,
+        animationSpec = tween(350),
+        label = "dotColor"
     )
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
+    val borderColor by animateColorAsState(
+        targetValue = if (isStreaming) NeonCyan.copy(alpha = 0.35f) else ObsidianBorder,
+        animationSpec = tween(350),
+        label = "borderColor"
     )
 
     Surface(
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(6.dp),
         color = ObsidianSurface,
-        border = BorderStroke(
-            1.dp,
-            if (isStreaming) NeonCyan.copy(alpha = 0.45f) else ObsidianBorder
-        ),
+        border = BorderStroke(1.dp, borderColor),
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(10.dp)
-            ) {
-                if (isStreaming) {
-                    Box(
-                        modifier = Modifier
-                            .size((8 * scale).dp)
-                            .background(NeonCyan.copy(alpha = alpha * 0.45f), CircleShape)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .background(if (isStreaming) NeonCyan else TextTertiary, CircleShape)
-                )
-            }
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(dotColor, CircleShape)
+            )
             Text(
                 text = if (isStreaming) "LIVE" else "OFFLINE",
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.6.sp,
-                color = if (isStreaming) NeonCyan else TextTertiary
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = if (isStreaming) TextPrimary else TextTertiary
             )
         }
     }
@@ -360,25 +338,25 @@ fun DashboardContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Floating Segmented Period Capsule (Pill shape RoundedCornerShape(50))
+            // 1. Segmented Period Selector (Modern crisp radius per F-08)
             item {
                 Surface(
                     color = ObsidianSurface,
-                    shape = RoundedCornerShape(50),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, ObsidianBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         periods.forEach { (key, label) ->
                             val selected = selectedPeriod == key
                             Surface(
                                 onClick = { onPeriodSelected(key) },
-                                shape = RoundedCornerShape(50),
+                                shape = RoundedCornerShape(7.dp),
                                 color = if (selected) NeonCoral else Color.Transparent,
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -389,7 +367,7 @@ fun DashboardContent(
                                     Text(
                                         text = label,
                                         fontSize = 12.sp,
-                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                         color = if (selected) Color.White else TextSecondary
                                     )
                                 }
@@ -403,7 +381,7 @@ fun DashboardContent(
                 item {
                     Surface(
                         color = ColorWarningGlow,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, ColorWarning.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -412,7 +390,11 @@ fun DashboardContent(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("📡", fontSize = 14.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(ColorWarning, CircleShape)
+                            )
                             Text(
                                 text = stringResource(R.string.offline_mode_cached),
                                 style = MaterialTheme.typography.bodySmall,
@@ -424,19 +406,17 @@ fun DashboardContent(
             }
 
             if (stats != null) {
-                // 2. Hero Overview Cards: Total Requests & Est. Cost with Mini Sparklines
+                // 2. Hero Overview Cards: Total Requests & Est. Cost (Clean, Truthful Metrics - F-01 Fixed)
                 item {
-                    val reqSparkline = remember(stats.recentRequests) {
-                        if (stats.recentRequests.size >= 4) {
-                            stats.recentRequests.take(12).reversed().map {
-                                (it.promptTokens + it.completionTokens).toFloat()
-                            }
-                        } else {
-                            listOf(12f, 18f, 15f, 26f, 32f, 28f, 42f, 55f)
-                        }
+                    val avgCostPerReq = remember(stats.totalCost, stats.totalRequests) {
+                        if (stats.totalRequests > 0) stats.totalCost / stats.totalRequests else 0.0
                     }
-                    val costSparkline = remember(stats.totalCost) {
-                        listOf(0.4f, 0.9f, 0.8f, 1.6f, 2.2f, 2.9f, 3.8f, 4.6f)
+                    val avgCostFormatted = remember(avgCostPerReq) {
+                        if (avgCostPerReq in 0.000001..0.001) {
+                            "$${DecimalFormat("#0.0000").format(avgCostPerReq)}/req"
+                        } else {
+                            "$${DecimalFormat("#0.000").format(avgCostPerReq)}/req"
+                        }
                     }
 
                     Row(
@@ -448,10 +428,9 @@ fun DashboardContent(
                             value = DecimalFormat("#,###").format(stats.totalRequests),
                             valueColor = TextPrimary,
                             accentColor = NeonCyan,
-                            subtitlePill = "${stats.derivedSuccessRate.toInt()}% OK",
+                            subtitlePill = "${stats.derivedSuccessRate.roundToInt()}% OK",
                             subtitlePillColor = NeonEmerald,
-                            sparklinePoints = reqSparkline,
-                            sparklineColor = NeonCyan,
+                            subtitle = "${stats.byProvider.size} providers active",
                             modifier = Modifier.weight(1.05f)
                         )
                         WebStyleCard(
@@ -459,15 +438,15 @@ fun DashboardContent(
                             value = "$${DecimalFormat("#0.00").format(stats.totalCost)}",
                             valueColor = NeonAmber,
                             accentColor = NeonAmber,
-                            subtitle = "Token Billing Est.",
-                            sparklinePoints = costSparkline,
-                            sparklineColor = NeonAmber,
+                            subtitlePill = avgCostFormatted,
+                            subtitlePillColor = NeonAmber,
+                            subtitle = "Token billing estimate",
                             modifier = Modifier.weight(0.95f)
                         )
                     }
                 }
 
-                // 3. Token Flow Triad: Input, Cached, Output with Mini Circular Gauges
+                // 3. Token Flow Triad: Input, Cached, Output with Restrained Hierarchy (F-05, F-07 Fixed)
                 item {
                     val totalSum = (stats.totalPromptTokens + stats.totalCachedTokens + stats.totalCompletionTokens).coerceAtLeast(1L)
                     val inputProgress = (stats.totalPromptTokens.toFloat() / totalSum).coerceIn(0.12f, 1f)
@@ -481,7 +460,7 @@ fun DashboardContent(
                         WebStyleCard(
                             label = "INPUT ↑",
                             value = formatTokens(stats.totalPromptTokens),
-                            valueColor = NeonViolet,
+                            valueColor = TextPrimary,
                             accentColor = NeonViolet,
                             gaugeProgress = inputProgress,
                             gaugeColor = NeonViolet,
@@ -489,9 +468,9 @@ fun DashboardContent(
                             modifier = Modifier.weight(1f)
                         )
                         WebStyleCard(
-                            label = "CACHED ⚡",
+                            label = "CACHED",
                             value = formatTokens(stats.totalCachedTokens),
-                            valueColor = NeonCyan,
+                            valueColor = TextPrimary,
                             accentColor = NeonCyan,
                             gaugeProgress = cachedProgress,
                             gaugeColor = NeonCyan,
@@ -501,7 +480,7 @@ fun DashboardContent(
                         WebStyleCard(
                             label = "OUTPUT ↓",
                             value = formatTokens(stats.totalCompletionTokens),
-                            valueColor = NeonEmerald,
+                            valueColor = TextPrimary,
                             accentColor = NeonEmerald,
                             gaugeProgress = outputProgress,
                             gaugeColor = NeonEmerald,
@@ -644,15 +623,15 @@ fun WebStyleCard(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
         border = BorderStroke(1.dp, ObsidianBorder),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Glowing Top Accent Line
+            // Subtle Top Accent Line
             if (accentColor != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(2.5.dp)
+                        .height(2.dp)
                         .background(accentColor)
                 )
             }
@@ -664,7 +643,7 @@ fun WebStyleCard(
                         horizontal = if (isCompact) 10.dp else 14.dp,
                         vertical = if (isCompact) 10.dp else 12.dp
                     ),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // Header row (Label + Gauge if present)
                 Row(
@@ -674,7 +653,7 @@ fun WebStyleCard(
                 ) {
                     Text(
                         text = label,
-                        fontSize = if (isCompact) 9.5.sp else 10.5.sp,
+                        fontSize = if (isCompact) 9.5.sp else 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.6.sp,
                         color = TextSecondary
@@ -683,7 +662,7 @@ fun WebStyleCard(
                         MiniCircularGauge(
                             progress = gaugeProgress,
                             color = gaugeColor,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -691,38 +670,47 @@ fun WebStyleCard(
                 Text(
                     text = value,
                     fontSize = if (isCompact) 16.sp else 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp,
                     color = valueColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (subtitlePill != null) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = subtitlePillColor.copy(alpha = 0.15f),
-                        border = BorderStroke(0.6.dp, subtitlePillColor.copy(alpha = 0.4f))
+                if (subtitlePill != null || subtitle != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = subtitlePill,
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = subtitlePillColor,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
+                        if (subtitlePill != null) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = subtitlePillColor.copy(alpha = 0.15f),
+                                border = BorderStroke(0.6.dp, subtitlePillColor.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = subtitlePill,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = subtitlePillColor,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        if (subtitle != null) {
+                            Text(
+                                text = subtitle,
+                                fontSize = 9.5.sp,
+                                color = TextTertiary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                } else if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        fontSize = 9.5.sp,
-                        color = TextTertiary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
 
-                // Mini Sparkline Chart di bagian bawah kartu
+                // Optional sparkline slot
                 if (sparklinePoints != null && sparklineColor != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     MiniSparkline(
@@ -740,7 +728,7 @@ fun WebStyleCard(
 
 /**
  * Strip kartu permintaan terbaru:
- * Provider squircle avatar, status dot (OK / ERR), monospace model name,
+ * Provider squircle avatar, status dot (OK / ERR), clean sans model name,
  * latency spark bars, dan token In/Out.
  */
 @Composable
@@ -751,7 +739,7 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         color = ObsidianSurfaceVariant.copy(alpha = 0.55f),
         border = BorderStroke(0.8.dp, ObsidianBorderSubtle)
     ) {
@@ -790,7 +778,6 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                     Text(
                         text = item.model.ifEmpty { "unknown" },
                         fontSize = 12.5.sp,
-                        fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,
                         maxLines = 1,
@@ -830,7 +817,7 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                             Text(
                                 text = "${latency}ms",
                                 fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium,
                                 color = TextSecondary
                             )
                         }
@@ -847,14 +834,12 @@ fun WebStyleRecentRow(item: RecentRequestItem) {
                     text = "${formatTokens(item.promptTokens)}↑",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
                     color = NeonViolet
                 )
                 Text(
                     text = "${formatTokens(item.completionTokens)}↓",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
                     color = NeonEmerald
                 )
             }
